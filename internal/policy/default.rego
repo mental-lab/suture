@@ -1,15 +1,26 @@
 # Declarative remediation gate — the OpenVEX-aware version of the advisor's
 # decision logic, evaluated by Conftest/OPA against three documents:
 #
-#   conftest test --policy policy/vex --data data/ \
-#     --data data/asset-inventory.json --data data/vex-cache.json scan.json
+#   conftest test scan.json \
+#     --policy policy/vex --all-namespaces \
+#     --data assets.json --data vex.json
+#
+# --all-namespaces is required: conftest only evaluates the `main` package by
+# default, and this policy is `package remediation`. Without it the gate
+# silently passes.
 #
 # Inputs:
-#   scan.json             Trivy fs scan output (the conftest input)
-#   asset-inventory.json  data.assets.assets — generated:
-#                           yq -o=json security/asset-inventory.yaml
-#   vex-cache.json        data.vex_cache — generated:
-#                           suture fetch --out data/vex-cache.json
+#   scan.json    Trivy fs scan output (the conftest input). Reshape Grype
+#                with jq first:
+#                  jq '{Results:[{Target:"requirements.txt", Vulnerabilities:
+#                    [.matches[] | {VulnerabilityID:.vulnerability.id,
+#                     Severity:.vulnerability.severity, PkgName:.artifact.name,
+#                     InstalledVersion:.artifact.version}]}]}' fs-scan.json
+#   assets.json  data.assets.assets — wrapped, not raw:
+#                  yq -o=json '{"assets": .}' security/asset-inventory.yaml
+#   vex.json     data.vex_cache — wrapped, not raw:
+#                  suture fetch --out data/vex-cache.json
+#                  jq '{vex_cache: .}' data/vex-cache.json
 package remediation
 
 import rego.v1

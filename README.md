@@ -84,7 +84,15 @@ scaffolds it.
   run: suture advise --scan-dir results/ --assets security/asset-inventory.yaml --out vex-report.md
 
 - name: Policy gate
-  run: conftest test --policy policy/vex --data data/ results/fs-scan.json
+  # --all-namespaces matters: conftest only evaluates the `main` package by
+  # default and the exported policy is `package remediation` — without it
+  # the gate silently passes.
+  run: |
+    yq -o=json '{"assets": .}' security/asset-inventory.yaml > assets.json
+    jq '{vex_cache: .}' data/vex-cache.json > vex.json
+    conftest test results/fs-scan.json \
+      --policy policy/vex --all-namespaces \
+      --data assets.json --data vex.json
 ```
 
 ## Supply chain
