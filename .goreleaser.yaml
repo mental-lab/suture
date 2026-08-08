@@ -1,0 +1,86 @@
+version: 2
+project_name: suture
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/mental-lab/suture/cmd.Version={{.Version}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    args:
+      - sign-blob
+      - --yes
+      - --output-signature
+      - ${artifact}.sig
+      - --output-certificate
+      - ${artifact}.pem
+      - ${artifact}
+
+# Homebrew tap — enable once a mental-lab/homebrew-tap repo exists and a
+# HOMEBREW_TAP_GITHUB_TOKEN secret is configured:
+# brews:
+#   - name: suture
+#     repository:
+#       owner: mental-lab
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     directory: Formula
+#     homepage: https://github.com/mental-lab/suture
+#     description: OpenVEX-aware remediation advisor and fix-cache builder for Chainguard Libraries
+#     install: |
+#       bin.install "suture"
+#     test: |
+#       system "#{bin}/suture", "--version"
+
+dockers:
+  - image_templates:
+      - ghcr.io/mental-lab/suture:{{ .Version }}-amd64
+      - ghcr.io/mental-lab/suture:latest-amd64
+    dockerfile: goreleaser.Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+  - image_templates:
+      - ghcr.io/mental-lab/suture:{{ .Version }}-arm64
+      - ghcr.io/mental-lab/suture:latest-arm64
+    dockerfile: goreleaser.Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64
+
+docker_manifests:
+  - name_template: ghcr.io/mental-lab/suture:{{ .Version }}
+    image_templates:
+      - ghcr.io/mental-lab/suture:{{ .Version }}-amd64
+      - ghcr.io/mental-lab/suture:{{ .Version }}-arm64
+  - name_template: ghcr.io/mental-lab/suture:latest
+    image_templates:
+      - ghcr.io/mental-lab/suture:latest-amd64
+      - ghcr.io/mental-lab/suture:latest-arm64
+
+release:
+  footer: |
+    ---
+
+    Released with [GoReleaser](https://goreleaser.com). Checksums are
+    cosign-signed (keyless); SBOMs attached per archive.

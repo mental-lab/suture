@@ -1,0 +1,196 @@
+package advise
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/mental-lab/suture/internal/feed"
+	"github.com/mental-lab/suture/internal/scan"
+)
+
+func TestDecide(t *testing.T) {
+	cases := []struct {
+		name                            string
+		severity                        string
+		internetFacing, hasFix, applied bool
+		want                            string
+	}{
+		{"fix already applied", "CRITICAL", true, true, true, "none"},
+		{"backport when fix available", "HIGH", true, true, false, "backport"},
+		{"backport regardless of exposure", "LOW", false, true, false, "backport"},
+		{"upgrade-or-replace for exposed high", "CRITICAL", true, false, false, "upgrade-or-replace"},
+		{"exception-review when lower risk", "MEDIUM", false, false, false, "exception-review"},
+		{"exception-review for internal high", "HIGH", false, false, false, "exception-review"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			action, _ := Decide(tc.severity, tc.internetFacing, tc.hasFix, tc.applied)
+			if action != tc.want {
+				t.Errorf("Decide() action = %q, want %q", action, tc.want)
+			}
+		})
+	}
+}
+
+func TestChainguardFixesSortsNewestFirst(t *testing.T) {
+	doc, err := feed.ParseDocument([]byte(`{
+	  "statements": [
+	    {"status": "fixed", "vulnerability": {"name": "CVE-1"},
+	     "products": [{"identifiers": {"purl": "pkg:pypi/werkzeug@2.2.3%2Bcgr.1"}}]},
+	    {"status": "fixed", "vulnerability": {"aliases": ["CVE-1"]},
+	     "products": [{"identifiers": {"purl": "pkg:pypi/werkzeug@2.2.3%2Bcgr.2"}}]}
+	  ]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixes := chainguardFixes(doc, "CVE-1")
+	if len(fixes) != 2 || !strings.Contains(fixes[0], "cgr.2") {
+		t.Errorf("fixes = %v, want newest (+cgr.2) first, matched via alias", fixes)
+	}
+}
+
+func TestFixApplied(t *testing.T) {
+	fixes := []string{"pkg:pypi/werkzeug@2.2.3%2Bcgr.1"}
+	if !fixApplied("2.2.3+cgr.1", fixes) {
+		t.Error("installed 2.2.3+cgr.1 should match the %2B-encoded fixed purl")
+	}
+	if fixApplied("2.2.3", fixes) {
+		t.Error("unpatched 2.2.3 must not be reported as applied")
+	}
+}
+
+func TestSuggestion(t *testing.T) {
+	got := Suggestion("pkg:pypi/werkzeug@2.2.3%2Bcgr.1", "pypi")
+	want := "werkzeug==2.2.3+cgr.1  (from https://libraries.cgr.dev/python/)"
+	if got != want {
+		t.Errorf("Suggestion() = %q, want %q", got, want)
+	}
+}
+
+// fakeFeed serves a minimal OpenVEX feed with one package document.
+func fakeFeed(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/all.json":
+			fmt.Fprint(w, `{"entries": [{"id": "pypi/werkzeug.openvex.json"}]}`)
+		case "/pypi/werkzeug.openvex.json":
+			fmt.Fprint(w, `{"statements": [{
+			  "status": "fixed",
+			  "vulnerability": {"name": "CVE-2023-25577"},
+			  "products": [{"identifiers": {"purl": "pkg:pypi/werkzeug@2.2.3%2Bcgr.1"}}]
+			}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func TestAnalyzeAndBlocking(t *testing.T) {
+	server := fakeFeed(t)
+	defer server.Close()
+
+	client := feed.New()
+	client.BaseURL = server.URL
+	advisor := New(client, "pypi", true)
+
+	findings := []scan.Finding{
+		{Target: "requirements.txt", ID: "CVE-2023-25577", Severity: "HIGH", Pkg: "werkzeug", Installed: "2.2.3"},
+		{Target: "requirements.txt", ID: "CVE-2023-25577", Severity: "HIGH", Pkg: "werkzeug", Installed: "2.2.3+cgr.1"},
+		{Target: "requirements.txt", ID: "CVE-9999-0000", Severity: "LOW", Pkg: "unknownpkg", Installed: "1.0"},
+	}
+	rows, err := advisor.Analyze(context.Background(), findings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("Analyze() returned %d rows, want 3", len(rows))
+	}
+
+	unpatched := rows[0]
+	if unpatched.Action != "backport" || unpatched.FixApplied {
+		t.Errorf("unpatched row = %+v, want action=backport, FixApplied=false", unpatched)
+	}
+	if !strings.Contains(unpatched.ChainguardFix, "werkzeug==2.2.3+cgr.1") {
+		t.Errorf("ChainguardFix = %q, want the +cgr.1 suggestion", unpatched.ChainguardFix)
+	}
+
+	patched := rows[1]
+	if patched.Action != "none" || !patched.FixApplied {
+		t.Errorf("patched row = %+v, want action=none, FixApplied=true", patched)
+	}
+
+	if rows[2].Action != "exception-review" {
+		t.Errorf("unknown package row action = %q, want exception-review", rows[2].Action)
+	}
+
+	blocking := Blocking(rows)
+	if len(blocking) != 1 || blocking[0].Installed != "2.2.3" {
+		t.Errorf("Blocking() = %v, want exactly the unpatched row", blocking)
+	}
+}
+
+// Grype reports the GHSA as primary with the CVE in relatedVulnerabilities,
+// and carries the artifact purl. The lookup must match via the alias and
+// resolve the feed entry from the purl, not the --index-prefix flag.
+func TestAnalyzeGrypeStyleFinding(t *testing.T) {
+	server := fakeFeed(t)
+	defer server.Close()
+
+	client := feed.New()
+	client.BaseURL = server.URL
+	advisor := New(client, "unused-prefix", false)
+
+	findings := []scan.Finding{{
+		Target:    "myapp:latest",
+		ID:        "GHSA-xrfv-9qxx-8jxp",
+		Severity:  "HIGH",
+		Pkg:       "werkzeug",
+		Installed: "2.2.3",
+		PURL:      "pkg:pypi/werkzeug",
+		Aliases:   []string{"CVE-2023-25577"},
+	}}
+	rows, err := advisor.Analyze(context.Background(), findings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0].Action != "backport" {
+		t.Errorf("action = %q, want backport via alias match", rows[0].Action)
+	}
+	if !strings.Contains(rows[0].ChainguardFix, "werkzeug==2.2.3+cgr.1") {
+		t.Errorf("ChainguardFix = %q, want the pypi suggestion from the purl ecosystem", rows[0].ChainguardFix)
+	}
+}
+
+func TestEntryIDFor(t *testing.T) {
+	withPurl := entryIDFor(scan.Finding{Pkg: "h2", PURL: "pkg:maven/com.h2database/h2"}, "pypi")
+	if withPurl != "maven/com.h2database/h2.openvex.json" {
+		t.Errorf("entryIDFor() = %q, want purl-derived entry", withPurl)
+	}
+	noPurl := entryIDFor(scan.Finding{Pkg: "werkzeug"}, "pypi")
+	if noPurl != "pypi/werkzeug.openvex.json" {
+		t.Errorf("entryIDFor() = %q, want prefix/pkg fallback", noPurl)
+	}
+}
+
+func TestMarkdown(t *testing.T) {
+	rows := []Row{{
+		Finding:        scan.Finding{ID: "CVE-1", Severity: "HIGH", Pkg: "werkzeug", Installed: "2.2.3"},
+		InternetFacing: true,
+		ChainguardFix:  "werkzeug==2.2.3+cgr.1",
+		Action:         "backport",
+		Rationale:      "fix exists",
+	}}
+	md := Markdown(rows)
+	for _, want := range []string{"CVE-1", "werkzeug==2.2.3+cgr.1", "**backport**", "🔴 yes", "fix exists"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("markdown missing %q", want)
+		}
+	}
+}
