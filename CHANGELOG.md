@@ -3,7 +3,7 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [v0.2.0] — 2026-08-09
 
 ### Added
 - `suture mcp` — a stdio Model Context Protocol server exposing read-only
