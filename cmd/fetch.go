@@ -3,31 +3,44 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/mental-lab/suture/internal/feed"
+	"github.com/mental-lab/suture/internal/sbom"
 	"github.com/spf13/cobra"
 )
 
 var (
-	fetchOut         string
-	fetchDocsDir     string
-	fetchBaseURL     string
-	fetchConcurrency int
+	fetchOut          string
+	fetchDocsDir      string
+	fetchBaseURL      string
+	fetchConcurrency  int
+	fetchSBOM         string
+	fetchPackages     []string
+	fetchPackagesFile string
 )
 
 var fetchCmd = &cobra.Command{
 	Use:   "fetch",
 	Short: "Fetch the OpenVEX feed and build the fix cache",
-	Long: `Fetch every per-package OpenVEX document from the Chainguard Libraries
-feed and emit the OPA-consumable fix cache. Optionally materialize the raw
+	Long: `Fetch per-package OpenVEX documents from the Chainguard Libraries feed
+and emit the OPA-consumable fix cache. Optionally materialize the raw
 documents so Grype can consume them directly via --vex <dir> for VEX-aware
-scanning that suppresses status=fixed findings.`,
+scanning that suppresses status=fixed findings.
+
+By default the whole feed is fetched. Scope to the packages you ship with
+--sbom (Syft/SPDX/CycloneDX JSON, or "-" for stdin), --packages (bare names
+match every ecosystem; "eco/name" pins one), or --packages-file (one name
+per line; requirements.txt works). Flags compose as a union.`,
 	Example: `  suture fetch --out data/vex-cache.json
-  suture fetch --out data/vex-cache.json --write-docs vex-documents`,
+  suture fetch --sbom sbom.json --write-docs vex-documents
+  syft . -o syft-json | suture fetch --sbom - --write-docs vex-documents
+  suture fetch --packages werkzeug,flask --packages-file requirements.txt`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
 		client := feed.New()
@@ -36,6 +49,22 @@ scanning that suppresses status=fixed findings.`,
 		ids, err := client.Index(ctx)
 		if err != nil {
 			return fmt.Errorf("feed index: %w", err)
+		}
+
+		wanted, explicit, err := fetchWanted(cmd)
+		if err != nil {
+			return err
+		}
+		if wanted != nil {
+			before := len(ids)
+			ids, explicit = filterIDs(ids, wanted, explicit)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Scoped feed to %d of %d documents\n", len(ids), before)
+			for _, name := range explicit {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warn: no feed document matched %q\n", name)
+			}
+			if len(ids) == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), "warn: scope matched zero documents; cache will be empty and the gate cannot deny unapplied fixes")
+			}
 		}
 
 		if fetchDocsDir != "" {
@@ -74,7 +103,7 @@ scanning that suppresses status=fixed findings.`,
 					var pretty json.RawMessage = raw
 					out, err := json.MarshalIndent(pretty, "", " ")
 					if err == nil {
-						_ = os.WriteFile(filepath.Join(fetchDocsDir, safe+".openvex.json"), out, 0o644)
+						_ = os.WriteFile(filepath.Join(fetchDocsDir, safe), out, 0o644)
 					}
 				}
 			}(id)
@@ -99,9 +128,102 @@ scanning that suppresses status=fixed findings.`,
 	},
 }
 
+// fetchWanted builds the set of wanted feed document keys from the scoping
+// flags. Returns nil (no scoping) when no flag was given. The second return
+// lists explicitly requested package names for unmatched-name warnings.
+func fetchWanted(cmd *cobra.Command) (wanted []string, explicit []string, err error) {
+	scoped := fetchSBOM != "" || len(fetchPackages) > 0 || fetchPackagesFile != ""
+	if !scoped {
+		return nil, nil, nil
+	}
+
+	if fetchSBOM != "" {
+		var data []byte
+		if fetchSBOM == "-" {
+			data, err = io.ReadAll(cmd.InOrStdin())
+		} else {
+			data, err = os.ReadFile(fetchSBOM)
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("read SBOM: %w", err)
+		}
+		purls, err := sbom.PURLs(data)
+		if err != nil {
+			return nil, nil, fmt.Errorf("--sbom: %w", err)
+		}
+		for _, p := range purls {
+			if key, ok := feed.DocKey(p); ok {
+				wanted = append(wanted, key)
+			}
+		}
+	}
+
+	for _, list := range fetchPackages {
+		for _, name := range strings.Split(list, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				wanted = append(wanted, name)
+				explicit = append(explicit, name)
+			}
+		}
+	}
+
+	if fetchPackagesFile != "" {
+		data, err := os.ReadFile(fetchPackagesFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read packages file: %w", err)
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			// Tolerate requirements.txt-style lines: strip version pins,
+			// extras, options, and comments.
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "-") {
+				continue
+			}
+			if i := strings.IndexAny(line, "=<>~[; "); i >= 0 {
+				line = line[:i]
+			}
+			if name := strings.TrimSpace(line); name != "" {
+				wanted = append(wanted, name)
+				explicit = append(explicit, name)
+			}
+		}
+	}
+	return wanted, explicit, nil
+}
+
+// filterIDs keeps feed entry IDs whose document key matches any wanted key
+// (feed.MatchKeys handles ecosystem pinning and name normalization). Returns
+// the surviving IDs plus the explicitly requested names that matched
+// nothing, for warning.
+func filterIDs(ids, wanted, explicit []string) ([]string, []string) {
+	matched := map[string]bool{}
+	var out []string
+	for _, id := range ids {
+		key := feed.KeyFromID(id)
+		for _, w := range wanted {
+			if feed.MatchKeys(w, key) {
+				out = append(out, id)
+				matched[w] = true
+				break
+			}
+		}
+	}
+	var unmatched []string
+	for _, name := range explicit {
+		if !matched[name] {
+			unmatched = append(unmatched, name)
+		}
+	}
+	sort.Strings(unmatched)
+	return out, unmatched
+}
+
 func init() {
 	fetchCmd.Flags().StringVar(&fetchOut, "out", "data/vex-cache.json", "path to write the fix cache")
 	fetchCmd.Flags().StringVar(&fetchDocsDir, "write-docs", "", "directory to write raw per-package OpenVEX documents for Grype")
 	fetchCmd.Flags().StringVar(&fetchBaseURL, "base-url", feed.DefaultBaseURL, "OpenVEX feed base URL")
 	fetchCmd.Flags().IntVar(&fetchConcurrency, "concurrency", 8, "parallel document fetches")
+	fetchCmd.Flags().StringVar(&fetchSBOM, "sbom", "", "SBOM to scope the fetch (Syft/SPDX/CycloneDX JSON, or \"-\" for stdin)")
+	fetchCmd.Flags().StringSliceVar(&fetchPackages, "packages", nil, "comma-separated package names (bare or eco/name) to scope the fetch")
+	fetchCmd.Flags().StringVar(&fetchPackagesFile, "packages-file", "", "file of package names, one per line (requirements.txt works)")
 }

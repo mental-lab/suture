@@ -131,6 +131,87 @@ func (c Cache) Index(doc *Document) {
 	}
 }
 
+// DocKey maps a purl (with or without version) to the feed's document key,
+// e.g. "pkg:pypi/werkzeug" → "pypi/werkzeug" and
+// "pkg:maven/org.apache.logging.log4j/log4j-core@2.1" →
+// "maven/org.apache.logging.log4j_log4j-core". Scoped names (npm
+// "@scope/name") are percent-decoded and joined with "_", matching the
+// feed's naming convention. The key is returned un-normalized; compare
+// with MatchKeys. Returns false for malformed purls.
+func DocKey(purl string) (string, bool) {
+	rest, ok := strings.CutPrefix(purl, "pkg:")
+	if !ok {
+		return "", false
+	}
+	if i := strings.IndexAny(rest, "@?#"); i >= 0 {
+		rest = rest[:i]
+	}
+	parts := strings.Split(rest, "/")
+	if len(parts) < 2 {
+		return "", false
+	}
+	names := make([]string, 0, len(parts)-1)
+	for _, p := range parts[1:] {
+		dec, err := url.PathUnescape(p)
+		if err != nil {
+			return "", false
+		}
+		names = append(names, dec)
+	}
+	return parts[0] + "/" + strings.Join(names, "_"), true
+}
+
+// MatchKeys reports whether two document keys refer to the same package,
+// normalizing the name portion (case and "-"/"_"/"." differences) so purls
+// from different SBOM producers match feed entries reliably. A wanted key
+// with an empty ecosystem ("pypi/" form omitted, i.e. "werkzeug") matches
+// any ecosystem with that name.
+func MatchKeys(want, have string) bool {
+	wEco, wName := SplitKey(want)
+	hEco, hName := SplitKey(have)
+	if wEco != "" && wEco != hEco {
+		return false
+	}
+	return NormalizeName(wName) == NormalizeName(hName)
+}
+
+// SplitKey splits a document key into ecosystem and name ("pypi/werkzeug" →
+// "pypi", "werkzeug"). Keys without a "/" yield an empty ecosystem.
+func SplitKey(key string) (eco, name string) {
+	eco, name, found := strings.Cut(key, "/")
+	if !found {
+		return "", key
+	}
+	return eco, name
+}
+
+// NormalizeName canonicalizes a package name for matching: lowercase with
+// runs of "-", "_", "." collapsed to "-" (PEP 503-style, applied to all
+// ecosystems since feed matching is fuzzy anyway).
+func NormalizeName(name string) string {
+	name = strings.ToLower(name)
+	var b strings.Builder
+	lastDash := false
+	for _, r := range name {
+		if r == '-' || r == '_' || r == '.' {
+			if !lastDash {
+				b.WriteByte('-')
+			}
+			lastDash = true
+			continue
+		}
+		lastDash = false
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// KeyFromID strips the ".openvex.json" suffix from a feed entry ID, leaving
+// the document key ("pypi/werkzeug").
+func KeyFromID(id string) string {
+	return strings.TrimSuffix(id, ".openvex.json")
+}
+
 // Stats returns (packages, fix mappings) for logging.
 func (c Cache) Stats() (pkgs, fixes int) {
 	for _, byID := range c {
