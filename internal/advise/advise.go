@@ -78,7 +78,7 @@ func (a *Advisor) fixes(ctx context.Context, f scan.Finding) ([]string, error) {
 	if err != nil || doc == nil {
 		return nil, err
 	}
-	return chainguardFixes(doc, f.IDs()...), nil
+	return ChainguardFixes(doc, f.IDs()...), nil
 }
 
 // doc fetches (and caches) the per-package OpenVEX document. A nil document
@@ -144,10 +144,10 @@ func (a *Advisor) feedIndex(ctx context.Context) map[string]bool {
 	return a.index
 }
 
-// chainguardFixes returns the fixed purls whose statement matches any of
+// ChainguardFixes returns the fixed purls whose statement matches any of
 // the finding's identifiers (by statement name or alias), sorted newest
 // version first.
-func chainguardFixes(doc *feed.Document, vulnIDs ...string) []string {
+func ChainguardFixes(doc *feed.Document, vulnIDs ...string) []string {
 	var fixes []string
 	for _, stmt := range doc.Statements {
 		if stmt.Status != "fixed" {
@@ -173,7 +173,7 @@ func chainguardFixes(doc *feed.Document, vulnIDs ...string) []string {
 		}
 	}
 	sort.SliceStable(fixes, func(i, j int) bool {
-		return compareVersions(versionTuple(versionOf(fixes[i])), versionTuple(versionOf(fixes[j]))) > 0
+		return compareVersions(versionTuple(VersionOf(fixes[i])), versionTuple(VersionOf(fixes[j]))) > 0
 	})
 	return fixes
 }
@@ -194,16 +194,16 @@ func Suggestion(purl, indexPrefix string) string {
 // Chainguard-fixed versions — i.e. the backport has been applied.
 func fixApplied(installed string, fixes []string) bool {
 	for _, fix := range fixes {
-		if installed == versionOf(fix) {
+		if installed == VersionOf(fix) {
 			return true
 		}
 	}
 	return false
 }
 
-// versionOf extracts the version portion of a purl, decoding the OpenVEX
+// VersionOf extracts the version portion of a purl, decoding the OpenVEX
 // url-encoded local segment ("2.2.3%2Bcgr.1" → "2.2.3+cgr.1").
-func versionOf(purl string) string {
+func VersionOf(purl string) string {
 	return strings.ReplaceAll(purl[strings.LastIndex(purl, "@")+1:], "%2B", "+")
 }
 

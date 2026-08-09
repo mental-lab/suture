@@ -48,7 +48,7 @@ func TestChainguardFixesSortsNewestFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixes := chainguardFixes(doc, "CVE-1")
+	fixes := ChainguardFixes(doc, "CVE-1")
 	if len(fixes) != 2 || !strings.Contains(fixes[0], "cgr.2") {
 		t.Errorf("fixes = %v, want newest (+cgr.2) first, matched via alias", fixes)
 	}

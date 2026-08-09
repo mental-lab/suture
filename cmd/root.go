@@ -30,5 +30,5 @@ func Execute() {
 
 func init() {
 	rootCmd.Version = Version
-	rootCmd.AddCommand(fetchCmd, adviseCmd, policyCmd)
+	rootCmd.AddCommand(fetchCmd, adviseCmd, policyCmd, mcpCmd)
 }
