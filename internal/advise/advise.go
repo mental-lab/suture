@@ -249,6 +249,30 @@ func Blocking(rows []Row) []Row {
 
 var severityRank = map[string]int{"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
+// LibrariesEcosystems are the purl types the Chainguard Libraries OpenVEX
+// feed serves. Findings outside this set (e.g. pkg:github actions Grype
+// catalogs from workflow files) can never have a Chainguard backport and
+// only add noise to the report.
+var LibrariesEcosystems = map[string]bool{
+	"pypi": true, "maven": true, "npm": true, "gem": true,
+	"nuget": true, "cargo": true, "golang": true,
+}
+
+// LibrariesScope splits findings into those a Chainguard Libraries fix could
+// address (kept) and everything else (dropped). Findings without a purl
+// (Trivy output) are kept — their ecosystem comes from --index-prefix.
+func LibrariesScope(findings []scan.Finding) (kept, dropped []scan.Finding) {
+	for _, f := range findings {
+		eco, _, _ := strings.Cut(strings.TrimPrefix(f.PURL, "pkg:"), "/")
+		if f.PURL == "" || LibrariesEcosystems[eco] {
+			kept = append(kept, f)
+		} else {
+			dropped = append(dropped, f)
+		}
+	}
+	return kept, dropped
+}
+
 // actionable reports whether a row belongs in the top "action required"
 // section: a Chainguard fix is waiting, or an exposed Critical/High needs
 // an upstream upgrade.

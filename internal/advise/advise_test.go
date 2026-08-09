@@ -209,6 +209,25 @@ func TestMarkdown(t *testing.T) {
 	}
 }
 
+func TestLibrariesScope(t *testing.T) {
+	findings := []scan.Finding{
+		{ID: "CVE-1", Pkg: "werkzeug", PURL: "pkg:pypi/werkzeug"},
+		{ID: "CVE-2", Pkg: "log4j-core", PURL: "pkg:maven/org.apache.logging.log4j/log4j-core"},
+		{ID: "GHSA-3", Pkg: "actions/download-artifact", PURL: "pkg:github/actions/download-artifact@v4"},
+		{ID: "CVE-4", Pkg: "node", PURL: "pkg:generic/node@22.18.0"},
+		{ID: "CVE-5", Pkg: "flask"}, // no purl (Trivy) — kept
+	}
+	kept, dropped := LibrariesScope(findings)
+	if len(kept) != 3 || len(dropped) != 2 {
+		t.Errorf("kept=%d dropped=%d, want 3/2", len(kept), len(dropped))
+	}
+	for _, f := range dropped {
+		if f.PURL == "" || LibrariesEcosystems[strings.Split(strings.TrimPrefix(f.PURL, "pkg:"), "/")[0]] {
+			t.Errorf("dropped finding %v should be outside Libraries ecosystems", f.ID)
+		}
+	}
+}
+
 func TestDedupeRows(t *testing.T) {
 	row := Row{Finding: scan.Finding{ID: "CVE-1", Pkg: "werkzeug", Installed: "2.2.3"}, Action: "backport"}
 	rows := dedupeRows([]Row{row, row, row})

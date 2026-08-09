@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mental-lab/suture/internal/advise"
 	"github.com/mental-lab/suture/internal/feed"
@@ -39,6 +40,20 @@ Chainguard fix available that has not been applied.`,
 		findings, err := scan.LoadDir(scanDir)
 		if err != nil {
 			return err
+		}
+		findings, dropped := advise.LibrariesScope(findings)
+		if len(dropped) > 0 {
+			types := map[string]int{}
+			for _, f := range dropped {
+				eco, _, _ := strings.Cut(strings.TrimPrefix(f.PURL, "pkg:"), "/")
+				types[eco]++
+			}
+			var parts []string
+			for eco, n := range types {
+				parts = append(parts, fmt.Sprintf("%s: %d", eco, n))
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Skipped %d findings outside Chainguard Libraries ecosystems (%s)\n",
+				len(dropped), strings.Join(parts, ", "))
 		}
 		if len(findings) == 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), "No findings in scan results — nothing to recommend.")
