@@ -1,9 +1,59 @@
 # suture
 
+**Scanners tell you a CVE exists. Suture tells you there's a same-version fix.**
+
+[![ci](https://github.com/mental-lab/suture/actions/workflows/ci.yml/badge.svg)](https://github.com/mental-lab/suture/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/mental-lab/suture)](https://github.com/mental-lab/suture/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mental-lab/suture)](https://goreportcard.com/report/github.com/mental-lab/suture)
+
 OpenVEX-aware remediation tooling for Chainguard Libraries. Cross-references
-vulnerability scanner output against the Chainguard OpenVEX feed to find
-**same-version backports** (`+cgr.N`), recommend a remediation path per
-finding, and gate merges on unapplied fixes.
+Trivy/Grype findings against the Chainguard OpenVEX feed to find
+**same-version backports** (`+cgr.N`) that generic scanners never surface,
+recommends a remediation path per finding, and gates merges on unapplied
+fixes.
+
+Not tied to Chainguard the company — tied to the **feed shape**: any OpenVEX
+feed laid out like Chainguard Libraries' works via `--base-url`. The reason
+this tool exists at all is that Chainguard is unusually transparent here:
+it publishes its remediation data as a **public, machine-readable OpenVEX
+feed**, where other backport vendors keep theirs behind a sales call. If
+another vendor publishes an equivalent feed tomorrow, suture serves it with
+one flag.
+
+## See it in action
+
+[chainguard-swag-shop](https://github.com/mental-lab/chainguard-swag-shop) is
+an intentionally vulnerable Flask shop wired to suture in CI. The advisor
+report on `main` looks like this — one actionable backport, pulled out of
+the noise:
+
+```
+**19 findings** — 🔧 1 with a Chainguard fix ready · ⬆️ 2 need an upstream upgrade · 📋 16 exception-review
+
+| CVE | Severity | Package | Chainguard fix | Action |
+| --- | --- | --- | --- | --- |
+| GHSA-2g68-c3qc-8985 | HIGH | `werkzeug 2.2.3` | werkzeug==3.0.2+cgr.1 | **backport** |
+```
+
+The repo walks the full story: build → test → scan → advise → policy gate
+(red on vulnerable `main`), then green on the remediated branch.
+
+## Status
+
+🚧 Early, and moving fast. Working today:
+
+- **fetch** — pull per-package OpenVEX documents into an OPA-consumable fix
+  cache, scoped to what you ship (`--sbom` / `--packages` / `--packages-file`)
+  or the full feed
+- **advise** — per-finding remediation recommendation (backport /
+  upgrade-or-replace / exception-review / already-fixed), reading Trivy and
+  Grype output interchangeably, scoped to Chainguard Libraries ecosystems
+- **policy export** — scaffold the same gate as declarative Rego for
+  Conftest/OPA
+- **Releases** — cosign keyless-signed, SBOM'd, multi-arch binaries and
+  Chainguard-based container images
+
+Roadmap: manifest auto-detection for scoping, richer asset context in the gate.
 
 ## Install
 
@@ -172,3 +222,21 @@ Every release ships with what you'd expect from a security tool:
 - **SBOM** attached to every archive
 - **Container images** built on `cgr.dev/chainguard/static` — multi-arch,
   minimal, zero-CVE base
+
+## What suture doesn't promise
+
+A green gate means no *in-scope* finding has an unapplied Chainguard fix. It
+says nothing about ecosystems outside the feed, scanners' blind spots, or
+packages you didn't scan. Suture is a remediation advisor, not a scanner and
+not a guarantee. See [scope and disclaimer](docs/trust/scope-and-disclaimer.md).
+
+## Documentation
+
+[Full documentation index →](docs/README.md)
+
+- [Quickstart](docs/getting-started/quickstart.md) — install, first fetch, first gate
+- [Concepts](docs/concepts/decision-framework.md) — OpenVEX backports, the fix cache, the decision framework
+- [CLI reference](docs/reference/cli.md) — every command and flag
+- [AI coding assistants](docs/guides/ai-assistants.md) — the MCP server and its read-only tools
+- [Changelog](CHANGELOG.md) — user-facing release notes
+- [Scope & disclaimer](docs/trust/scope-and-disclaimer.md) — what suture does and does not claim
