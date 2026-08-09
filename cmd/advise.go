@@ -45,9 +45,14 @@ Chainguard fix available that has not been applied.`,
 			return nil
 		}
 
+		facing, err := internetFacing(assetsPath, assetKey)
+		if err != nil {
+			return err
+		}
+
 		client := feed.New()
 		client.BaseURL = adviseBaseURL
-		advisor := advise.New(client, advisePrefix, internetFacing(assetsPath, assetKey))
+		advisor := advise.New(client, advisePrefix, facing)
 
 		rows, err := advisor.Analyze(cmd.Context(), findings)
 		if err != nil {
@@ -89,13 +94,13 @@ Chainguard fix available that has not been applied.`,
 // internetFacing reads the asset inventory and returns whether the target
 // asset is internet-exposed. With no --asset-key and exactly one asset in the
 // inventory (the common single-service case), that asset is used.
-func internetFacing(assetsPath, assetKey string) bool {
+func internetFacing(assetsPath, assetKey string) (bool, error) {
 	if assetsPath == "" {
-		return false
+		return false, nil
 	}
 	data, err := os.ReadFile(assetsPath)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("read asset inventory: %w", err)
 	}
 	var inv struct {
 		Assets map[string]struct {
@@ -103,7 +108,7 @@ func internetFacing(assetsPath, assetKey string) bool {
 		} `yaml:"assets"`
 	}
 	if err := yaml.Unmarshal(data, &inv); err != nil {
-		return false
+		return false, fmt.Errorf("parse asset inventory: %w", err)
 	}
 	key := assetKey
 	if key == "" && len(inv.Assets) == 1 {
@@ -111,7 +116,10 @@ func internetFacing(assetsPath, assetKey string) bool {
 			key = k
 		}
 	}
-	return inv.Assets[key].InternetExposed
+	if _, ok := inv.Assets[key]; !ok {
+		return false, fmt.Errorf("asset %q not found in inventory", key)
+	}
+	return inv.Assets[key].InternetExposed, nil
 }
 
 func init() {

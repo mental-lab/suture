@@ -247,30 +247,102 @@ func Blocking(rows []Row) []Row {
 	return out
 }
 
+var severityRank = map[string]int{"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+// actionable reports whether a row belongs in the top "action required"
+// section: a Chainguard fix is waiting, or an exposed Critical/High needs
+// an upstream upgrade.
+func actionable(r Row) bool {
+	return r.Action == "backport" || r.Action == "upgrade-or-replace"
+}
+
+// dedupeRows collapses identical findings (same ID, package, version,
+// action) that scanners report more than once across targets.
+func dedupeRows(rows []Row) []Row {
+	seen := map[string]bool{}
+	out := make([]Row, 0, len(rows))
+	for _, r := range rows {
+		key := r.ID + "|" + r.Pkg + "|" + r.Installed + "|" + r.Action
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, r)
+	}
+	return out
+}
+
+func sortRows(rows []Row) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		ai, aj := actionable(rows[i]), actionable(rows[j])
+		if ai != aj {
+			return ai
+		}
+		si, sj := severityRank[rows[i].Severity], severityRank[rows[j].Severity]
+		if si != sj {
+			return si < sj
+		}
+		if rows[i].Pkg != rows[j].Pkg {
+			return rows[i].Pkg < rows[j].Pkg
+		}
+		return rows[i].ID < rows[j].ID
+	})
+}
+
 func Markdown(rows []Row) string {
+	rows = dedupeRows(rows)
+	sortRows(rows)
+
+	counts := map[string]int{}
+	for _, r := range rows {
+		counts[r.Action]++
+	}
+
 	var b strings.Builder
 	b.WriteString("## 🛡️ Remediation Advisor — Chainguard OpenVEX analysis\n\n")
-	b.WriteString("Each scanner finding was cross-referenced against the Chainguard\n")
-	b.WriteString("Libraries OpenVEX feed to determine whether a **Chainguard-built\n")
-	b.WriteString("backported/patched package** already exists.\n\n")
-	b.WriteString("| CVE | Severity | Package | Internet-facing | Chainguard fix | Recommended action |\n")
-	b.WriteString("| --- | --- | --- | --- | --- | --- |\n")
-	for _, r := range rows {
-		fix := r.ChainguardFix
-		if fix == "" {
-			fix = "— none in feed —"
+	fmt.Fprintf(&b, "**%d findings** — 🔧 %d with a Chainguard fix ready · ⬆️ %d need an upstream upgrade · 📋 %d exception-review · ✅ %d already fixed\n\n",
+		len(rows), counts["backport"], counts["upgrade-or-replace"], counts["exception-review"], counts["none"])
+
+	writeTable := func(rs []Row) {
+		b.WriteString("| CVE | Severity | Package | Chainguard fix | Action |\n")
+		b.WriteString("| --- | --- | --- | --- | --- |\n")
+		for _, r := range rs {
+			fix := r.ChainguardFix
+			if fix == "" {
+				fix = "—"
+			}
+			fmt.Fprintf(&b, "| %s | %s | `%s %s` | %s | **%s** |\n",
+				r.ID, r.Severity, r.Pkg, r.Installed, fix, r.Action)
 		}
-		facing := "no"
-		if r.InternetFacing {
-			facing = "🔴 yes"
-		}
-		fmt.Fprintf(&b, "| %s | %s | `%s %s` | %s | %s | **%s** |\n",
-			r.ID, r.Severity, r.Pkg, r.Installed, facing, fix, r.Action)
 	}
-	b.WriteString("\n### Rationale\n\n")
+
+	var todo, rest []Row
 	for _, r := range rows {
-		fmt.Fprintf(&b, "- **%s** (`%s`): %s\n", r.ID, r.Pkg, r.Rationale)
+		if actionable(r) {
+			todo = append(todo, r)
+		} else {
+			rest = append(rest, r)
+		}
 	}
+
+	if len(todo) > 0 {
+		b.WriteString("### Action required\n\n")
+		writeTable(todo)
+		b.WriteString("\n### Rationale\n\n")
+		for _, r := range todo {
+			fmt.Fprintf(&b, "- **%s** (`%s`): %s\n", r.ID, r.Pkg, r.Rationale)
+		}
+		b.WriteString("\n")
+	} else {
+		b.WriteString("**No immediate action required** — no Chainguard fix is waiting and no exposed Critical/High needs an upgrade.\n\n")
+	}
+
+	if len(rest) > 0 {
+		fmt.Fprintf(&b, "<details><summary>All remaining findings (%d) — exception-review and already fixed</summary>\n\n", len(rest))
+		writeTable(rest)
+		b.WriteString("\n</details>\n")
+	}
+
 	b.WriteString("\n> Decision framework: fix available → compatible upgrade → backport → " +
 		"replacement → compensating control, weighted by severity × " +
 		"exploitability × internet exposure × asset criticality.\n")

@@ -180,17 +180,39 @@ func TestEntryIDFor(t *testing.T) {
 }
 
 func TestMarkdown(t *testing.T) {
-	rows := []Row{{
-		Finding:        scan.Finding{ID: "CVE-1", Severity: "HIGH", Pkg: "werkzeug", Installed: "2.2.3"},
-		InternetFacing: true,
-		ChainguardFix:  "werkzeug==2.2.3+cgr.1",
-		Action:         "backport",
-		Rationale:      "fix exists",
-	}}
+	rows := []Row{
+		{
+			Finding:        scan.Finding{ID: "CVE-1", Severity: "HIGH", Pkg: "werkzeug", Installed: "2.2.3"},
+			InternetFacing: true,
+			ChainguardFix:  "werkzeug==2.2.3+cgr.1",
+			Action:         "backport",
+			Rationale:      "fix exists",
+		},
+		{
+			Finding:        scan.Finding{ID: "CVE-2", Severity: "LOW", Pkg: "idna", Installed: "3.13"},
+			InternetFacing: true,
+			Action:         "exception-review",
+			Rationale:      "lower risk",
+		},
+	}
 	md := Markdown(rows)
-	for _, want := range []string{"CVE-1", "werkzeug==2.2.3+cgr.1", "**backport**", "🔴 yes", "fix exists"} {
+	for _, want := range []string{"CVE-1", "werkzeug==2.2.3+cgr.1", "**backport**", "fix exists",
+		"**2 findings**", "🔧 1 with a Chainguard fix", "Action required", "<details>"} {
 		if !strings.Contains(md, want) {
 			t.Errorf("markdown missing %q", want)
 		}
+	}
+	// Non-actionable rows belong in the collapsed section only.
+	actionSection := md[:strings.Index(md, "<details>")]
+	if strings.Contains(actionSection, "CVE-2") {
+		t.Error("exception-review row leaked into the action-required section")
+	}
+}
+
+func TestDedupeRows(t *testing.T) {
+	row := Row{Finding: scan.Finding{ID: "CVE-1", Pkg: "werkzeug", Installed: "2.2.3"}, Action: "backport"}
+	rows := dedupeRows([]Row{row, row, row})
+	if len(rows) != 1 {
+		t.Errorf("dedupeRows kept %d of 3 identical rows", len(rows))
 	}
 }
