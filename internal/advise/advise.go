@@ -352,13 +352,27 @@ func Markdown(rows []Row) string {
 	fmt.Fprintf(&b, "**%d findings** — 🔧 %d with a Chainguard fix ready · ⬆️ %d need an upstream upgrade · 📋 %d exception-review · ✅ %d already fixed\n\n",
 		len(rows), counts["backport"], counts["upgrade-or-replace"], counts["exception-review"], counts["none"])
 
+	// upstreamFix renders the scanner-reported upstream fix version, e.g.
+	// "msgpack==1.2.1". Scanners may list several fixed versions; the first
+	// is the minimal one.
+	upstreamFix := func(r Row) string {
+		v, _, _ := strings.Cut(r.Fixed, ",")
+		if v == "" {
+			return ""
+		}
+		return fmt.Sprintf("%s==%s", r.Pkg, v)
+	}
+
 	writeTable := func(rs []Row) {
-		b.WriteString("| CVE | Severity | Package | Chainguard fix | Action |\n")
+		b.WriteString("| CVE | Severity | Package | Fix | Action |\n")
 		b.WriteString("| --- | --- | --- | --- | --- |\n")
 		for _, r := range rs {
 			fix := r.ChainguardFix
 			if fix == "" {
 				fix = "—"
+				if up := upstreamFix(r); up != "" {
+					fix = up + " (upstream)"
+				}
 			}
 			fmt.Fprintf(&b, "| %s | %s | `%s %s` | %s | **%s** |\n",
 				r.ID, r.Severity, r.Pkg, r.Installed, fix, r.Action)
@@ -379,7 +393,13 @@ func Markdown(rows []Row) string {
 		writeTable(todo)
 		b.WriteString("\n### Rationale\n\n")
 		for _, r := range todo {
-			fmt.Fprintf(&b, "- **%s** (`%s`): %s\n", r.ID, r.Pkg, r.Rationale)
+			rail := ""
+			if r.Action == "upgrade-or-replace" {
+				if up := upstreamFix(r); up != "" {
+					rail = fmt.Sprintf(" Upstream fixed in %s.", up)
+				}
+			}
+			fmt.Fprintf(&b, "- **%s** (`%s`): %s%s\n", r.ID, r.Pkg, r.Rationale, rail)
 		}
 		b.WriteString("\n")
 	} else {

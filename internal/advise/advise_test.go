@@ -216,10 +216,17 @@ func TestMarkdown(t *testing.T) {
 			Action:         "exception-review",
 			Rationale:      "lower risk",
 		},
+		{
+			Finding:        scan.Finding{ID: "GHSA-3", Severity: "HIGH", Pkg: "msgpack", Installed: "1.1.2", Fixed: "1.2.1"},
+			InternetFacing: true,
+			Action:         "upgrade-or-replace",
+			Rationale:      "no backport",
+		},
 	}
 	md := Markdown(rows)
 	for _, want := range []string{"CVE-1", "werkzeug==2.2.3+cgr.1", "**backport**", "fix exists",
-		"**2 findings**", "🔧 1 with a Chainguard fix", "Action required", "<details>"} {
+		"**3 findings**", "🔧 1 with a Chainguard fix", "Action required", "<details>",
+		"msgpack==1.2.1 (upstream)", "Upstream fixed in msgpack==1.2.1."} {
 		if !strings.Contains(md, want) {
 			t.Errorf("markdown missing %q", want)
 		}
