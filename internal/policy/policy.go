@@ -11,10 +11,12 @@ import (
 //go:embed default.rego
 var defaultRego string
 
-// Export writes the default gate policy to dir, substituting the asset key
-// used to look up exposure context in the asset-inventory data document.
-// Returns the path written.
+// Export writes the default gate policy to dir. The policy consumes the
+// advisor's JSON output, so asset context is applied by the advisor
+// upstream; assetKey is accepted for CLI compatibility and currently
+// unused. Returns the path written.
 func Export(dir, assetKey string) (string, error) {
+	_ = assetKey
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

@@ -14,21 +14,23 @@ import (
 
 func TestDecide(t *testing.T) {
 	cases := []struct {
-		name                            string
-		severity                        string
-		internetFacing, hasFix, applied bool
-		want                            string
+		name                                      string
+		severity                                  string
+		internetFacing, hasFix, applied, hasUpFix bool
+		want                                      string
 	}{
-		{"fix already applied", "CRITICAL", true, true, true, "none"},
-		{"backport when fix available", "HIGH", true, true, false, "backport"},
-		{"backport regardless of exposure", "LOW", false, true, false, "backport"},
-		{"upgrade-or-replace for exposed high", "CRITICAL", true, false, false, "upgrade-or-replace"},
-		{"exception-review when lower risk", "MEDIUM", false, false, false, "exception-review"},
-		{"exception-review for internal high", "HIGH", false, false, false, "exception-review"},
+		{"fix already applied", "CRITICAL", true, true, true, true, "none"},
+		{"backport when fix available", "HIGH", true, true, false, true, "backport"},
+		{"backport regardless of exposure", "LOW", false, true, false, false, "backport"},
+		{"upgrade-or-replace for exposed high", "CRITICAL", true, false, false, true, "upgrade-or-replace"},
+		{"upgrade-or-replace even without upstream fix", "HIGH", true, false, false, false, "upgrade-or-replace"},
+		{"upgrade when upstream fix exists", "MEDIUM", false, false, false, true, "upgrade"},
+		{"upgrade beats exception for internal high", "HIGH", false, false, false, true, "upgrade"},
+		{"exception-review means no fix anywhere", "MEDIUM", false, false, false, false, "exception-review"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			action, _ := Decide(tc.severity, tc.internetFacing, tc.hasFix, tc.applied)
+			action, _ := Decide(tc.severity, tc.internetFacing, tc.hasFix, tc.applied, tc.hasUpFix)
 			if action != tc.want {
 				t.Errorf("Decide() action = %q, want %q", action, tc.want)
 			}

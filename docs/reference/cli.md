@@ -70,8 +70,14 @@ suture policy export --dir policy/vex --asset-key my-service
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--dir` | `policy/vex` | output directory for the .rego file |
-| `--asset-key` | — | asset the gate applies to |
+| `--asset-key` | — | accepted for compatibility; unused since v0.4.0 |
 
 The exported policy is `package remediation`; evaluate it with
 `conftest test --all-namespaces` — conftest only evaluates `package main`
 by default, and without the flag the gate silently passes.
+
+Since v0.4.0 the gate is *thin*: it consumes the advisor's JSON output
+(`suture advise --format json`) and only encodes what blocks a merge —
+internet-facing CRITICAL/HIGH with an unapplied Chainguard backport.
+Decision logic (which action a finding gets) lives in the advisor, so new
+advisor actions never require policy changes.

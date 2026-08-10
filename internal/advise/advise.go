@@ -64,7 +64,7 @@ func (a *Advisor) Analyze(ctx context.Context, findings []scan.Finding) ([]Row, 
 			row.ChainguardFix = Suggestion(fixes[0], prefixOf(f, a.IndexPrefix))
 			row.FixApplied = fixApplied(f.Installed, fixes)
 		}
-		row.Action, row.Rationale = Decide(f.Severity, a.InternetFacing, len(fixes) > 0, row.FixApplied)
+		row.Action, row.Rationale = Decide(f.Severity, a.InternetFacing, len(fixes) > 0, row.FixApplied, f.Fixed != "")
 		rows = append(rows, row)
 	}
 	return rows, nil
@@ -237,7 +237,7 @@ func deniedSeverity(severity string) bool {
 }
 
 // Decide is the decision framework, mechanized.
-func Decide(severity string, internetFacing, hasFix, applied bool) (action, rationale string) {
+func Decide(severity string, internetFacing, hasFix, applied, hasUpstreamFix bool) (action, rationale string) {
 	switch {
 	case hasFix && applied:
 		return "none",
@@ -253,9 +253,13 @@ func Decide(severity string, internetFacing, hasFix, applied bool) (action, rati
 			"No Chainguard backport coverage in the VEX feed. Internet-facing " +
 				severity + ": pursue compatible upstream upgrade; if breaking, " +
 				"evaluate package replacement before a compensating control."
+	case hasUpstreamFix:
+		return "upgrade",
+			"No Chainguard backport, but upstream ships a fix — routine " +
+				"dependency hygiene, not gate-blocking."
 	default:
 		return "exception-review",
-			"No backport available and risk context is lower. A time-boxed " +
+			"No fix available from Chainguard or upstream. A time-boxed " +
 				"compensating-control exception may be acceptable."
 	}
 }
@@ -349,8 +353,8 @@ func Markdown(rows []Row) string {
 
 	var b strings.Builder
 	b.WriteString("## 🛡️ Remediation Advisor — Chainguard OpenVEX analysis\n\n")
-	fmt.Fprintf(&b, "**%d findings** — 🔧 %d with a Chainguard fix ready · ⬆️ %d need an upstream upgrade · 📋 %d exception-review · ✅ %d already fixed\n\n",
-		len(rows), counts["backport"], counts["upgrade-or-replace"], counts["exception-review"], counts["none"])
+	fmt.Fprintf(&b, "**%d findings** — 🔧 %d with a Chainguard fix ready · ⬆️ %d need an upstream upgrade · 🔼 %d upgrades available · 📋 %d exception-review · ✅ %d already fixed\n\n",
+		len(rows), counts["backport"], counts["upgrade-or-replace"], counts["upgrade"], counts["exception-review"], counts["none"])
 
 	// upstreamFix renders the scanner-reported upstream fix version, e.g.
 	// "msgpack==1.2.1". Scanners may list several fixed versions; the first
@@ -407,7 +411,7 @@ func Markdown(rows []Row) string {
 	}
 
 	if len(rest) > 0 {
-		fmt.Fprintf(&b, "<details><summary>All remaining findings (%d) — exception-review and already fixed</summary>\n\n", len(rest))
+		fmt.Fprintf(&b, "<details><summary>All remaining findings (%d) — upgrades available, exception-review, already fixed</summary>\n\n", len(rest))
 		writeTable(rest)
 		b.WriteString("\n</details>\n")
 	}

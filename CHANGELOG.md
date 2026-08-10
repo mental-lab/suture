@@ -3,6 +3,24 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.4.0] — 2026-08-10
+
+### Changed — advisor
+- New `upgrade` action: findings with no Chainguard backport but an upstream
+  fix available are now labeled `upgrade` instead of `exception-review`.
+  `exception-review` now strictly means no fix exists anywhere. The markdown
+  summary gains a "upgrades available" count.
+
+### Changed — `policy export` (breaking)
+- The exported gate is now *thin*: it consumes the advisor's JSON output
+  (`suture advise --format json`) and denies only on internet-facing
+  CRITICAL/HIGH with an unapplied Chainguard backport (`action="backport"`).
+  Decision logic lives in the advisor; the policy no longer re-derives
+  findings from raw scan output, the VEX cache, and the asset inventory.
+  The `--asset-key` flag is accepted for compatibility but unused.
+  Existing gates using the pre-v0.4.0 policy contract (scan.json input with
+  assets/vex data documents) must switch to the advisor JSON contract.
+
 ## [v0.3.3] — 2026-08-09
 
 ### Changed
