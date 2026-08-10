@@ -12,7 +12,7 @@ suture fetch [flags]
 | --- | --- | --- |
 | `--out` | `data/vex-cache.json` | cache output path (OPA data document) |
 | `--write-docs` | — | also write raw OpenVEX documents to this dir (for `grype --vex`) |
-| `--write-docs-file` | — | write one merged OpenVEX document to this file (for `trivy --vex`, which takes a file not a dir) |
+| `--write-vex` | — | write one merged OpenVEX document to this file (for `trivy --vex`, which takes a file not a dir) |
 | `--sbom` | — | scope to packages in an SBOM (Syft/SPDX/CycloneDX; `-` reads stdin) |
 | `--packages` | — | scope to a comma-separated list (`pypi/werkzeug` or bare `werkzeug`) |
 | `--packages-file` | — | scope to packages listed one per line (version pins stripped) |

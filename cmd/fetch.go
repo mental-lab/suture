@@ -24,7 +24,7 @@ var (
 	fetchSBOM         string
 	fetchPackages     []string
 	fetchPackagesFile string
-	fetchDocsFile     string
+	fetchVexFile      string
 )
 
 var fetchCmd = &cobra.Command{
@@ -33,7 +33,7 @@ var fetchCmd = &cobra.Command{
 	Long: `Fetch per-package OpenVEX documents from the Chainguard Libraries feed
 and emit the OPA-consumable fix cache. Optionally materialize the raw
 documents so Grype can consume them directly via --vex <dir>, or a single
-merged document via --write-docs-file for Trivy's --vex <file>, for
+merged document via --write-vex for Trivy's --vex <file>, for
 VEX-aware scanning that suppresses status=fixed findings.
 
 By default the whole feed is fetched. Scope to the packages you ship with
@@ -80,7 +80,7 @@ per line; requirements.txt works). Flags compose as a union.`,
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, fetchConcurrency)
-		var raws [][]byte // for --write-docs-file
+		var raws [][]byte // for --write-vex
 
 		for _, id := range ids {
 			wg.Add(1)
@@ -102,7 +102,7 @@ per line; requirements.txt works). Flags compose as a union.`,
 				mu.Lock()
 				defer mu.Unlock()
 				cache.Index(doc)
-				if fetchDocsFile != "" {
+				if fetchVexFile != "" {
 					raws = append(raws, raw)
 				}
 				if fetchDocsDir != "" {
@@ -117,12 +117,12 @@ per line; requirements.txt works). Flags compose as a union.`,
 		}
 		wg.Wait()
 
-		if fetchDocsFile != "" {
-			n, err := writeMergedVEX(fetchDocsFile, raws)
+		if fetchVexFile != "" {
+			n, err := writeMergedVEX(fetchVexFile, raws)
 			if err != nil {
 				return fmt.Errorf("write merged VEX document: %w", err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s: %d statements merged\n", fetchDocsFile, n)
+			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s: %d statements merged\n", fetchVexFile, n)
 		}
 
 		data, err := json.MarshalIndent(cache, "", " ")
@@ -274,7 +274,9 @@ func writeMergedVEX(path string, raws [][]byte) (int, error) {
 func init() {
 	fetchCmd.Flags().StringVar(&fetchOut, "out", "data/vex-cache.json", "path to write the fix cache")
 	fetchCmd.Flags().StringVar(&fetchDocsDir, "write-docs", "", "directory to write raw per-package OpenVEX documents for Grype")
-	fetchCmd.Flags().StringVar(&fetchDocsFile, "write-docs-file", "", "write one merged OpenVEX document (for Trivy --vex, which takes a file)")
+	fetchCmd.Flags().StringVar(&fetchVexFile, "write-vex", "", "write one merged OpenVEX document (for Trivy --vex, which takes a file)")
+	fetchCmd.Flags().StringVar(&fetchVexFile, "write-docs-file", "", "alias for --write-vex")
+	_ = fetchCmd.Flags().MarkHidden("write-docs-file")
 	fetchCmd.Flags().StringVar(&fetchBaseURL, "base-url", feed.DefaultBaseURL, "OpenVEX feed base URL")
 	fetchCmd.Flags().IntVar(&fetchConcurrency, "concurrency", 8, "parallel document fetches")
 	fetchCmd.Flags().StringVar(&fetchSBOM, "sbom", "", "SBOM to scope the fetch (Syft/SPDX/CycloneDX JSON, or \"-\" for stdin)")

@@ -3,6 +3,12 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.3.1] — 2026-08-09
+
+### Added
+- `fetch --write-vex` — shorter spelling of `--write-docs-file` (kept as a
+  hidden alias); names what it produces.
+
 ## [v0.3.0] — 2026-08-09
 
 ### Added
