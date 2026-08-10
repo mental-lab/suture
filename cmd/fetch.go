@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mental-lab/suture/internal/feed"
 	"github.com/mental-lab/suture/internal/sbom"
@@ -23,6 +24,7 @@ var (
 	fetchSBOM         string
 	fetchPackages     []string
 	fetchPackagesFile string
+	fetchDocsFile     string
 )
 
 var fetchCmd = &cobra.Command{
@@ -30,8 +32,9 @@ var fetchCmd = &cobra.Command{
 	Short: "Fetch the OpenVEX feed and build the fix cache",
 	Long: `Fetch per-package OpenVEX documents from the Chainguard Libraries feed
 and emit the OPA-consumable fix cache. Optionally materialize the raw
-documents so Grype can consume them directly via --vex <dir> for VEX-aware
-scanning that suppresses status=fixed findings.
+documents so Grype can consume them directly via --vex <dir>, or a single
+merged document via --write-docs-file for Trivy's --vex <file>, for
+VEX-aware scanning that suppresses status=fixed findings.
 
 By default the whole feed is fetched. Scope to the packages you ship with
 --sbom (Syft/SPDX/CycloneDX JSON, or "-" for stdin), --packages (bare names
@@ -77,6 +80,7 @@ per line; requirements.txt works). Flags compose as a union.`,
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, fetchConcurrency)
+		var raws [][]byte // for --write-docs-file
 
 		for _, id := range ids {
 			wg.Add(1)
@@ -98,6 +102,9 @@ per line; requirements.txt works). Flags compose as a union.`,
 				mu.Lock()
 				defer mu.Unlock()
 				cache.Index(doc)
+				if fetchDocsFile != "" {
+					raws = append(raws, raw)
+				}
 				if fetchDocsDir != "" {
 					safe := strings.NewReplacer("/", "_", ":", "_").Replace(id)
 					var pretty json.RawMessage = raw
@@ -109,6 +116,14 @@ per line; requirements.txt works). Flags compose as a union.`,
 			}(id)
 		}
 		wg.Wait()
+
+		if fetchDocsFile != "" {
+			n, err := writeMergedVEX(fetchDocsFile, raws)
+			if err != nil {
+				return fmt.Errorf("write merged VEX document: %w", err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s: %d statements merged\n", fetchDocsFile, n)
+		}
 
 		data, err := json.MarshalIndent(cache, "", " ")
 		if err != nil {
@@ -218,9 +233,48 @@ func filterIDs(ids, wanted, explicit []string) ([]string, []string) {
 	return out, unmatched
 }
 
+// partialDoc peels the statements array off a raw OpenVEX document so
+// documents can be merged without re-encoding their statements.
+type partialDoc struct {
+	Statements []json.RawMessage `json:"statements"`
+}
+
+// writeMergedVEX writes one OpenVEX document containing every fetched
+// statement. Trivy's --vex accepts a file but not a directory; Grype takes
+// either, so per-statement fidelity is preserved by carrying raw JSON.
+func writeMergedVEX(path string, raws [][]byte) (int, error) {
+	var stmts []json.RawMessage
+	for _, raw := range raws {
+		var d partialDoc
+		if err := json.Unmarshal(raw, &d); err != nil {
+			return 0, err
+		}
+		stmts = append(stmts, d.Statements...)
+	}
+	merged := map[string]any{
+		"@context":   "https://openvex.dev/ns/v0.2.0",
+		"@id":        "https://github.com/mental-lab/suture/vex/merged",
+		"author":     "Chainguard Team (merged by suture fetch)",
+		"version":    1,
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		"statements": stmts,
+	}
+	data, err := json.MarshalIndent(merged, "", " ")
+	if err != nil {
+		return 0, err
+	}
+	if dir := filepath.Dir(path); dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return 0, err
+		}
+	}
+	return len(stmts), os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
 func init() {
 	fetchCmd.Flags().StringVar(&fetchOut, "out", "data/vex-cache.json", "path to write the fix cache")
 	fetchCmd.Flags().StringVar(&fetchDocsDir, "write-docs", "", "directory to write raw per-package OpenVEX documents for Grype")
+	fetchCmd.Flags().StringVar(&fetchDocsFile, "write-docs-file", "", "write one merged OpenVEX document (for Trivy --vex, which takes a file)")
 	fetchCmd.Flags().StringVar(&fetchBaseURL, "base-url", feed.DefaultBaseURL, "OpenVEX feed base URL")
 	fetchCmd.Flags().IntVar(&fetchConcurrency, "concurrency", 8, "parallel document fetches")
 	fetchCmd.Flags().StringVar(&fetchSBOM, "sbom", "", "SBOM to scope the fetch (Syft/SPDX/CycloneDX JSON, or \"-\" for stdin)")

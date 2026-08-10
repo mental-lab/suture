@@ -54,6 +54,28 @@ func TestChainguardFixesSortsNewestFirst(t *testing.T) {
 	}
 }
 
+func TestSameVersionFirst(t *testing.T) {
+	fixes := []string{
+		"pkg:pypi/setuptools@77.0.3%2Bcgr.1",
+		"pkg:pypi/setuptools@70.1.1%2Bcgr.1",
+		"pkg:pypi/setuptools@70.3.0%2Bcgr.1",
+	}
+	got := SameVersionFirst(fixes, "70.3.0")
+	if want := "pkg:pypi/setuptools@70.3.0%2Bcgr.1"; got[0] != want {
+		t.Errorf("SameVersionFirst[0] = %s, want same-version backport %s", got[0], want)
+	}
+	// No same-version fix: order unchanged (newest first as given).
+	got = SameVersionFirst(fixes, "68.0.0")
+	if got[0] != fixes[0] {
+		t.Errorf("SameVersionFirst with no match should preserve order, got %v", got)
+	}
+	// Already-remediated install still matches its own backport first.
+	got = SameVersionFirst(fixes, "70.3.0+cgr.1")
+	if got[0] != "pkg:pypi/setuptools@70.3.0%2Bcgr.1" {
+		t.Errorf("installed +cgr.1 should match its base version, got %v", got)
+	}
+}
+
 func TestFixApplied(t *testing.T) {
 	fixes := []string{"pkg:pypi/werkzeug@2.2.3%2Bcgr.1"}
 	if !fixApplied("2.2.3+cgr.1", fixes) {

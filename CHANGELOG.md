@@ -3,6 +3,19 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.3.0] — 2026-08-09
+
+### Added
+- `fetch --write-docs-file <path>` — writes one merged OpenVEX document
+  containing every fetched statement (raw-statement fidelity). Trivy's
+  `--vex` accepts a file but not a directory; Grype takes either.
+
+### Changed
+- `advise` now prefers the **same-version backport** when recommending a
+  fix (e.g. `setuptools==70.3.0+cgr.1` for an installed `70.3.0`) instead
+  of always sorting the newest backport first. The same-version pin is the
+  non-breaking change and the tool's core recommendation.
+
 ## [v0.2.0] — 2026-08-09
 
 ### Added

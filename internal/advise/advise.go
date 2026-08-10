@@ -70,15 +70,40 @@ func (a *Advisor) Analyze(ctx context.Context, findings []scan.Finding) ([]Row, 
 	return rows, nil
 }
 
-// fixes returns the Chainguard-fixed purls for a finding, newest first. The
-// lookup matches on any of the finding's identifiers (Grype reports a GHSA
-// primary with CVE aliases; Trivy reports the CVE).
+// fixes returns the Chainguard-fixed purls for a finding, preferring the
+// same-version backport (the non-breaking change) and otherwise newest
+// first. The lookup matches on any of the finding's identifiers (Grype
+// reports a GHSA primary with CVE aliases; Trivy reports the CVE).
 func (a *Advisor) fixes(ctx context.Context, f scan.Finding) ([]string, error) {
 	doc, err := a.doc(ctx, f)
 	if err != nil || doc == nil {
 		return nil, err
 	}
-	return ChainguardFixes(doc, f.IDs()...), nil
+	return SameVersionFirst(ChainguardFixes(doc, f.IDs()...), f.Installed), nil
+}
+
+// SameVersionFirst reorders fixed purls so a backport of the installed
+// version (e.g. 3.0.2+cgr.1 for installed 3.0.2) sorts ahead of newer
+// backports. Order within each group is preserved.
+func SameVersionFirst(fixes []string, installed string) []string {
+	base := baseVersion(installed)
+	var same, other []string
+	for _, fix := range fixes {
+		if baseVersion(VersionOf(fix)) == base {
+			same = append(same, fix)
+		} else {
+			other = append(other, fix)
+		}
+	}
+	return append(same, other...)
+}
+
+// baseVersion strips the local ("+cgr.N") segment, e.g. "3.0.2+cgr.1" → "3.0.2".
+func baseVersion(version string) string {
+	if i := strings.Index(version, "+"); i >= 0 {
+		return version[:i]
+	}
+	return version
 }
 
 // doc fetches (and caches) the per-package OpenVEX document. A nil document
