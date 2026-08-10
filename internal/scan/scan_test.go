@@ -41,6 +41,30 @@ func TestLoadDirTrivy(t *testing.T) {
 	}
 }
 
+func TestLoadDirTrivySkipsOSPackages(t *testing.T) {
+	dir := t.TempDir()
+	report := `{
+	  "Results": [
+	    {"Target": "python:3.12-slim (debian 13.1)", "Class": "os-pkgs",
+	     "Vulnerabilities": [{"VulnerabilityID": "CVE-2010-4756", "Severity": "LOW",
+	       "PkgName": "libc6", "InstalledVersion": "2.41-12"}]},
+	    {"Target": "Python", "Class": "lang-pkgs",
+	     "Vulnerabilities": [{"VulnerabilityID": "CVE-2023-25577", "Severity": "HIGH",
+	       "PkgName": "werkzeug", "InstalledVersion": "2.2.3"}]}
+	  ]
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "image-scan.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := LoadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || findings[0].Pkg != "werkzeug" {
+		t.Fatalf("os-pkgs should be dropped, lang-pkgs kept; got %+v", findings)
+	}
+}
+
 func TestLoadDirGrype(t *testing.T) {
 	dir := t.TempDir()
 	// Grype image scan: GHSA-primary ID, CVE in relatedVulnerabilities,

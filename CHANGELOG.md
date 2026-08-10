@@ -3,6 +3,14 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.3.3] — 2026-08-09
+
+### Changed
+- `advise` drops Trivy `os-pkgs` results (Debian/Wolfi system packages).
+  They can never have a Chainguard Libraries fix and flooded the report
+  when the advisor moved to image scans (~100 noise rows on a debian
+  base). OS findings remain visible in the image-scan summary.
+
 ## [v0.3.2] — 2026-08-09
 
 ### Changed

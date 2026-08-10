@@ -64,6 +64,7 @@ func LoadDir(dir string) ([]Finding, error) {
 
 type trivyResults []struct {
 	Target          string `json:"Target"`
+	Class           string `json:"Class"`
 	Vulnerabilities []struct {
 		VulnerabilityID  string `json:"VulnerabilityID"`
 		Severity         string `json:"Severity"`
@@ -80,6 +81,12 @@ func parseTrivy(raw json.RawMessage) []Finding {
 	}
 	var findings []Finding
 	for _, r := range results {
+		// OS packages (debian/wolfi/etc.) can never have a Chainguard
+		// Libraries fix — they belong to the image/OS story, not the
+		// advisor. Skipping them keeps image-scan reports readable.
+		if r.Class == "os-pkgs" {
+			continue
+		}
 		for _, v := range r.Vulnerabilities {
 			findings = append(findings, Finding{
 				Target:    orDefault(r.Target, "unknown"),
