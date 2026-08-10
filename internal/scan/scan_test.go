@@ -41,6 +41,38 @@ func TestLoadDirTrivy(t *testing.T) {
 	}
 }
 
+func TestLoadDirTrivyPopulatesPURL(t *testing.T) {
+	// Trivy findings carry only CVE IDs; without the purl the advisor cannot
+	// key the finding to the feed cache and silently finds zero fixes.
+	dir := t.TempDir()
+	report := `{
+	  "Results": [{
+	    "Target": "Python",
+	    "Class": "lang-pkgs",
+	    "Vulnerabilities": [{
+	      "VulnerabilityID": "CVE-2023-25577",
+	      "Severity": "HIGH",
+	      "PkgName": "werkzeug",
+	      "InstalledVersion": "2.2.3",
+	      "PkgIdentifier": {"PURL": "pkg:pypi/werkzeug@2.2.3"}
+	    }]
+	  }]
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "image-scan.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := LoadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("LoadDir() = %d findings, want 1", len(findings))
+	}
+	if findings[0].PURL != "pkg:pypi/werkzeug" {
+		t.Errorf("PURL = %q, want version-less purl", findings[0].PURL)
+	}
+}
+
 func TestLoadDirTrivySkipsOSPackages(t *testing.T) {
 	dir := t.TempDir()
 	report := `{

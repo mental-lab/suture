@@ -71,6 +71,9 @@ type trivyResults []struct {
 		PkgName          string `json:"PkgName"`
 		InstalledVersion string `json:"InstalledVersion"`
 		FixedVersion     string `json:"FixedVersion"`
+		PkgIdentifier    struct {
+			PURL string `json:"PURL"`
+		} `json:"PkgIdentifier"`
 	} `json:"Vulnerabilities"`
 }
 
@@ -95,6 +98,7 @@ func parseTrivy(raw json.RawMessage) []Finding {
 				Pkg:       orDefault(v.PkgName, "?"),
 				Installed: orDefault(v.InstalledVersion, "?"),
 				Fixed:     v.FixedVersion,
+				PURL:      stripPurlVersion(v.PkgIdentifier.PURL),
 			})
 		}
 	}

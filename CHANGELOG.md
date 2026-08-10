@@ -3,6 +3,15 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.4.1] — 2026-08-10
+
+### Fixed
+- Trivy findings now carry the package purl (`PkgIdentifier.PURL`). Without
+  it the advisor could not key Trivy findings to the feed cache (Trivy
+  reports only CVE IDs), silently found zero fixes, and never emitted
+  `backport` — which also made the thin gate fail open on Trivy scans.
+  Grype input was unaffected (grype reports purls natively).
+
 ## [v0.4.0] — 2026-08-10
 
 ### Changed — advisor
