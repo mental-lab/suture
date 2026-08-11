@@ -21,9 +21,14 @@ type Row struct {
 	scan.Finding
 	InternetFacing bool   `json:"internet_facing"`
 	ChainguardFix  string `json:"chainguard_fix,omitempty"`
-	FixApplied     bool   `json:"fix_applied"`
-	Action         string `json:"action"`
-	Rationale      string `json:"rationale"`
+	// FixPURL is the structured form of ChainguardFix (e.g.
+	// "pkg:pypi/werkzeug@2.2.3%2Bcgr.1") — the machine-readable
+	// contract for automation like `suture fix`. ChainguardFix is a
+	// display string for humans; do not parse it.
+	FixPURL    string `json:"fix_purl,omitempty"`
+	FixApplied bool   `json:"fix_applied"`
+	Action     string `json:"action"`
+	Rationale  string `json:"rationale"`
 }
 
 // Advisor looks findings up in the OpenVEX feed, fetching each per-package
@@ -62,6 +67,7 @@ func (a *Advisor) Analyze(ctx context.Context, findings []scan.Finding) ([]Row, 
 		row := Row{Finding: f, InternetFacing: a.InternetFacing}
 		if len(fixes) > 0 {
 			row.ChainguardFix = Suggestion(fixes[0], prefixOf(f, a.IndexPrefix))
+			row.FixPURL = fixes[0]
 			row.FixApplied = fixApplied(f.Installed, fixes)
 		}
 		row.Action, row.Rationale = Decide(f.Severity, a.InternetFacing, len(fixes) > 0, row.FixApplied, f.Fixed != "")

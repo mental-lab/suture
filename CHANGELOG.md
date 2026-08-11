@@ -3,6 +3,20 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.5.1] — 2026-08-10
+
+### Changed — advisor / `suture fix`
+- Advisor rows gain a structured `fix_purl` field (e.g.
+  `pkg:pypi/werkzeug@2.2.3%2Bcgr.1`). Automation must read this;
+  `chainguard_fix` remains a display string for humans.
+- `suture fix` now covers the Chainguard Libraries ecosystems: PyPI
+  (`requirements*.txt`), npm (`package.json` exact pins), Maven (`pom.xml`
+  literal dependency versions). It derives name/version from `fix_purl`
+  (ecosystem-generic) instead of parsing the display string. Patchers sit
+  behind a registry — a new ecosystem is one `Patcher`.
+- Pins rewrite only when the manifest still matches the scanned version
+  (idempotent; never touches a pin that has already moved).
+
 ## [v0.5.0] — 2026-08-10
 
 ### Added — `suture fix`
