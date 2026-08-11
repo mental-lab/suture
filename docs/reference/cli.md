@@ -59,6 +59,28 @@ suture mcp [--base-url URL]
 Exposes `check_fix`, `list_fixes`, and `advise`. See
 [AI coding assistants](../guides/ai-assistants.md).
 
+## `suture fix`
+
+Apply the advisor's backport recommendations to dependency manifests.
+
+```
+suture advise --scan-dir results/ --format json --out vex-report.json
+suture fix --from vex-report.json --write --out summary.md
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--from` | `-` (stdin) | advisor JSON report (`suture advise --format json`) |
+| `--dir` | `.` | repository root to scan for manifests |
+| `--write` | off | rewrite manifests in place (default: dry run) |
+| `--format` | `markdown` | summary format: `markdown`\|`json` |
+| `--out` | stdout | write the summary to a file |
+
+Only rows with `action="backport"` are applied — same-version `+cgr.N`
+pins, non-breaking by construction. Manifest discovery is Gemnasium-style:
+known filenames (`requirements*.txt`), at most two levels deep. Everything
+except the changed pins is preserved byte-for-byte.
+
 ## `suture policy export`
 
 Scaffold the default remediation gate as Rego.

@@ -3,6 +3,18 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.5.0] — 2026-08-10
+
+### Added — `suture fix`
+- Dependabot-style backport application. Consumes the advisor's JSON output
+  (`suture advise --format json`), takes every `backport` row, and rewrites
+  the pins in dependency manifests discovered under `--dir`
+  (requirements*.txt, up to two levels deep). Same-version `+cgr.N` pins
+  only — upgrades and exceptions stay advisory. Dry-run by default;
+  `--write` applies. Emits a markdown/JSON summary for the PR body.
+- New `internal/manifest` package: parse/rewrite preserving everything
+  except changed pins, plus repo manifest discovery.
+
 ## [v0.4.1] — 2026-08-10
 
 ### Fixed
