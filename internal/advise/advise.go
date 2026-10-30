@@ -65,12 +65,17 @@ func (a *Advisor) Analyze(ctx context.Context, findings []scan.Finding) ([]Row, 
 			return nil, err
 		}
 		row := Row{Finding: f, InternetFacing: a.InternetFacing}
+		sameVersionFix := false
 		if len(fixes) > 0 {
 			row.ChainguardFix = Suggestion(fixes[0], prefixOf(f, a.IndexPrefix))
 			row.FixPURL = fixes[0]
 			row.FixApplied = fixApplied(f.Installed, fixes)
+			// SameVersionFirst already ranks same-base-version fixes to the
+			// top, so if fixes[0] isn't a same-version backport then no fix
+			// in the catalog is.
+			sameVersionFix = baseVersion(VersionOf(fixes[0])) == baseVersion(f.Installed)
 		}
-		row.Action, row.Rationale = Decide(f.Severity, a.InternetFacing, len(fixes) > 0, row.FixApplied, f.Fixed != "")
+		row.Action, row.Rationale = Decide(f.Severity, a.InternetFacing, len(fixes) > 0, sameVersionFix, row.FixApplied, f.Fixed != "")
 		rows = append(rows, row)
 	}
 	return rows, nil
@@ -104,13 +109,18 @@ func SameVersionFirst(fixes []string, installed string) []string {
 	return append(same, other...)
 }
 
-// baseVersion strips the local ("+cgr.N") segment, e.g. "3.0.2+cgr.1" → "3.0.2".
+// baseVersion strips the Chainguard remediation suffix so same-version
+// comparison works across ecosystems. PyPI/npm append "+cgr.N" (PEP 440
+// local version); Maven appends "-0.cgr.N". Both must come off for us to
+// recognize that e.g. "6.2.19-0.cgr.1" is a backport of installed "6.2.19".
 func baseVersion(version string) string {
-	if i := strings.Index(version, "+"); i >= 0 {
-		return version[:i]
-	}
-	return version
+	return cgrSuffix.ReplaceAllString(version, "")
 }
+
+// cgrSuffix matches the Chainguard remediation marker at the end of a
+// version string. Keep this narrow — only Chainguard's own markers, not
+// anything that might look suffix-y in upstream metadata.
+var cgrSuffix = regexp.MustCompile(`(\+cgr\.\d+|-0\.cgr\.\d+)$`)
 
 // doc fetches (and caches) the per-package OpenVEX document. A nil document
 // means Chainguard publishes no VEX data for the package, i.e. there is no
@@ -243,17 +253,34 @@ func deniedSeverity(severity string) bool {
 }
 
 // Decide is the decision framework, mechanized.
-func Decide(severity string, internetFacing, hasFix, applied, hasUpstreamFix bool) (action, rationale string) {
+//
+// hasFix means the Chainguard feed has at least one fixed version for the
+// finding. sameVersionFix means the top-ranked fix is at the SAME upstream
+// base version as the installed artifact — i.e. a true backport that
+// preserves the API surface. When hasFix is true but sameVersionFix is
+// false, the Chainguard fix exists only at a different base version and
+// adopting it requires a version change (minor, major, or sometimes
+// downgrade); that is categorically not a backport and we must not claim
+// test-suite compatibility.
+func Decide(severity string, internetFacing, hasFix, sameVersionFix, applied, hasUpstreamFix bool) (action, rationale string) {
 	switch {
 	case hasFix && applied:
 		return "none",
 			"Chainguard backport already applied — the installed version matches " +
 				"a fixed release in the feed."
-	case hasFix:
+	case hasFix && sameVersionFix:
 		return "backport",
-			"Chainguard-built patched package exists (VEX status=fixed). Backport " +
-				"remediates without a breaking upstream upgrade; the same test " +
-				"suite must pass on both sides of the change."
+			"Chainguard-built patched package exists at the SAME upstream version " +
+				"(VEX status=fixed). This is a same-version backport: identical API " +
+				"surface, CVE fix layered on top. Safe to apply with the existing test suite."
+	case hasFix:
+		// Chainguard has a fix, but only at a DIFFERENT upstream base version.
+		// This is a version change, not a backport — honest rationale required.
+		return "upgrade",
+			"Chainguard-built patched package exists, but only at a different " +
+				"upstream base version. Adopting it is a version change (not a " +
+				"same-version backport); review the API diff and run full regression " +
+				"tests before applying."
 	case deniedSeverity(severity) && internetFacing:
 		return "upgrade-or-replace",
 			"No Chainguard backport coverage in the VEX feed. Internet-facing " +
@@ -271,11 +298,13 @@ func Decide(severity string, internetFacing, hasFix, applied, hasUpstreamFix boo
 }
 
 // Blocking returns the rows that fail the gate: internet-facing Critical/High
-// findings with a Chainguard fix available but not applied.
+// findings with a same-version Chainguard backport available but not applied.
+// Cross-version upgrades (Action == "upgrade" even when a Chainguard fix is
+// in the feed) require code review and must not be mechanically gated.
 func Blocking(rows []Row) []Row {
 	var out []Row
 	for _, r := range rows {
-		if r.InternetFacing && deniedSeverity(r.Severity) && r.ChainguardFix != "" && !r.FixApplied {
+		if r.InternetFacing && deniedSeverity(r.Severity) && r.Action == "backport" && !r.FixApplied {
 			out = append(out, r)
 		}
 	}

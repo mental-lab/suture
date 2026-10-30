@@ -14,27 +14,49 @@ import (
 
 func TestDecide(t *testing.T) {
 	cases := []struct {
-		name                                      string
-		severity                                  string
-		internetFacing, hasFix, applied, hasUpFix bool
-		want                                      string
+		name                                                      string
+		severity                                                  string
+		internetFacing, hasFix, sameVersionFix, applied, hasUpFix bool
+		want                                                      string
 	}{
-		{"fix already applied", "CRITICAL", true, true, true, true, "none"},
-		{"backport when fix available", "HIGH", true, true, false, true, "backport"},
-		{"backport regardless of exposure", "LOW", false, true, false, false, "backport"},
-		{"upgrade-or-replace for exposed high", "CRITICAL", true, false, false, true, "upgrade-or-replace"},
-		{"upgrade-or-replace even without upstream fix", "HIGH", true, false, false, false, "upgrade-or-replace"},
-		{"upgrade when upstream fix exists", "MEDIUM", false, false, false, true, "upgrade"},
-		{"upgrade beats exception for internal high", "HIGH", false, false, false, true, "upgrade"},
-		{"exception-review means no fix anywhere", "MEDIUM", false, false, false, false, "exception-review"},
+		{"fix already applied", "CRITICAL", true, true, true, true, true, "none"},
+		{"backport only when same base version", "HIGH", true, true, true, false, true, "backport"},
+		{"backport regardless of exposure", "LOW", false, true, true, false, false, "backport"},
+		{"cross-version Chainguard fix is upgrade, not backport (major)", "CRITICAL", true, true, false, false, false, "upgrade"},
+		{"cross-version Chainguard fix is upgrade (even internet-facing high)", "HIGH", true, true, false, false, true, "upgrade"},
+		{"upgrade-or-replace for exposed high with no fix at all", "CRITICAL", true, false, false, false, true, "upgrade-or-replace"},
+		{"upgrade-or-replace even without upstream fix", "HIGH", true, false, false, false, false, "upgrade-or-replace"},
+		{"upgrade when only upstream fix exists", "MEDIUM", false, false, false, false, true, "upgrade"},
+		{"upgrade beats exception for internal high", "HIGH", false, false, false, false, true, "upgrade"},
+		{"exception-review means no fix anywhere", "MEDIUM", false, false, false, false, false, "exception-review"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			action, _ := Decide(tc.severity, tc.internetFacing, tc.hasFix, tc.applied, tc.hasUpFix)
+			action, _ := Decide(tc.severity, tc.internetFacing, tc.hasFix, tc.sameVersionFix, tc.applied, tc.hasUpFix)
 			if action != tc.want {
 				t.Errorf("Decide() action = %q, want %q", action, tc.want)
 			}
 		})
+	}
+}
+
+// TestBaseVersionStripsCgrSuffix guards against the regression where only
+// PyPI "+cgr.N" was stripped but Maven "-0.cgr.N" was left intact, causing
+// SameVersionFirst to never find Maven backports.
+func TestBaseVersionStripsCgrSuffix(t *testing.T) {
+	cases := map[string]string{
+		"6.2.19":           "6.2.19",
+		"6.2.19-0.cgr.1":   "6.2.19",
+		"6.2.19-0.cgr.42":  "6.2.19",
+		"2.2.3+cgr.1":      "2.2.3",
+		"2.2.3+cgr.7":      "2.2.3",
+		"1.5.33-RC1":       "1.5.33-RC1",       // non-cgr suffix left alone
+		"5.3.21-SNAPSHOT":  "5.3.21-SNAPSHOT",  // non-cgr suffix left alone
+	}
+	for input, want := range cases {
+		if got := baseVersion(input); got != want {
+			t.Errorf("baseVersion(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
 
