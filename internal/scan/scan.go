@@ -15,14 +15,15 @@ import (
 // primary ID with the CVE in relatedVulnerabilities) so feed lookups match
 // either form. PURL (version-less) identifies the package ecosystem.
 type Finding struct {
-	Target    string   `json:"target"`
-	ID        string   `json:"id"`
-	Severity  string   `json:"severity"`
-	Pkg       string   `json:"pkg"`
-	Installed string   `json:"installed"`
-	Fixed     string   `json:"fixed,omitempty"`
-	PURL      string   `json:"purl,omitempty"`
-	Aliases   []string `json:"aliases,omitempty"`
+	Target     string   `json:"target"`
+	ID         string   `json:"id"`
+	Severity   string   `json:"severity"`
+	CVSSVector string   `json:"cvss_vector,omitempty"`
+	Pkg        string   `json:"pkg"`
+	Installed  string   `json:"installed"`
+	Fixed      string   `json:"fixed,omitempty"`
+	PURL       string   `json:"purl,omitempty"`
+	Aliases    []string `json:"aliases,omitempty"`
 }
 
 // IDs returns every identifier for the finding, primary first.
@@ -71,7 +72,12 @@ type trivyResults []struct {
 		PkgName          string `json:"PkgName"`
 		InstalledVersion string `json:"InstalledVersion"`
 		FixedVersion     string `json:"FixedVersion"`
-		PkgIdentifier    struct {
+		CVSS             map[string]struct {
+			V3Vector  string `json:"V3Vector"`
+			V4Vector  string `json:"V4Vector"`
+			V40Vector string `json:"V40Vector"`
+		} `json:"CVSS"`
+		PkgIdentifier struct {
 			PURL string `json:"PURL"`
 		} `json:"PkgIdentifier"`
 	} `json:"Vulnerabilities"`
@@ -91,14 +97,25 @@ func parseTrivy(raw json.RawMessage) []Finding {
 			continue
 		}
 		for _, v := range r.Vulnerabilities {
+			var vectors []string
+			var sources []string
+			for source := range v.CVSS {
+				sources = append(sources, source)
+			}
+			sort.Strings(sources)
+			for _, source := range sources {
+				entry := v.CVSS[source]
+				vectors = append(vectors, entry.V40Vector, entry.V4Vector, entry.V3Vector)
+			}
 			findings = append(findings, Finding{
-				Target:    orDefault(r.Target, "unknown"),
-				ID:        orDefault(v.VulnerabilityID, "UNKNOWN"),
-				Severity:  strings.ToUpper(orDefault(v.Severity, "UNKNOWN")),
-				Pkg:       orDefault(v.PkgName, "?"),
-				Installed: orDefault(v.InstalledVersion, "?"),
-				Fixed:     v.FixedVersion,
-				PURL:      stripPurlVersion(v.PkgIdentifier.PURL),
+				Target:     orDefault(r.Target, "unknown"),
+				ID:         orDefault(v.VulnerabilityID, "UNKNOWN"),
+				Severity:   strings.ToUpper(orDefault(v.Severity, "UNKNOWN")),
+				CVSSVector: preferredCVSS(vectors),
+				Pkg:        orDefault(v.PkgName, "?"),
+				Installed:  orDefault(v.InstalledVersion, "?"),
+				Fixed:      v.FixedVersion,
+				PURL:       stripPurlVersion(v.PkgIdentifier.PURL),
 			})
 		}
 	}
@@ -111,7 +128,10 @@ type grypeReport struct {
 		Vulnerability struct {
 			ID       string `json:"id"`
 			Severity string `json:"severity"`
-			Fix      struct {
+			CVSS     []struct {
+				Vector string `json:"vector"`
+			} `json:"cvss"`
+			Fix struct {
 				Versions []string `json:"versions"`
 			} `json:"fix"`
 		} `json:"vulnerability"`
@@ -135,13 +155,14 @@ func parseGrype(data []byte) []Finding {
 	var findings []Finding
 	for _, m := range report.Matches {
 		f := Finding{
-			Target:    target,
-			ID:        orDefault(m.Vulnerability.ID, "UNKNOWN"),
-			Severity:  strings.ToUpper(orDefault(m.Vulnerability.Severity, "UNKNOWN")),
-			Pkg:       orDefault(m.Artifact.Name, "?"),
-			Installed: orDefault(m.Artifact.Version, "?"),
-			Fixed:     strings.Join(m.Vulnerability.Fix.Versions, ","),
-			PURL:      stripPurlVersion(m.Artifact.PURL),
+			Target:     target,
+			ID:         orDefault(m.Vulnerability.ID, "UNKNOWN"),
+			Severity:   strings.ToUpper(orDefault(m.Vulnerability.Severity, "UNKNOWN")),
+			CVSSVector: preferredGrypeCVSS(m.Vulnerability.CVSS),
+			Pkg:        orDefault(m.Artifact.Name, "?"),
+			Installed:  orDefault(m.Artifact.Version, "?"),
+			Fixed:      strings.Join(m.Vulnerability.Fix.Versions, ","),
+			PURL:       stripPurlVersion(m.Artifact.PURL),
 		}
 		for _, rv := range m.RelatedVulnerabilities {
 			if rv.ID != "" && rv.ID != f.ID {
@@ -151,6 +172,29 @@ func parseGrype(data []byte) []Finding {
 		findings = append(findings, f)
 	}
 	return findings
+}
+
+func preferredGrypeCVSS(entries []struct {
+	Vector string `json:"vector"`
+}) string {
+	vectors := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		vectors = append(vectors, entry.Vector)
+	}
+	return preferredCVSS(vectors)
+}
+
+// preferredCVSS selects a GitHub-compatible CVSS v4 vector when available,
+// otherwise CVSS v3. Scanner-provided ordering is preserved within a version.
+func preferredCVSS(vectors []string) string {
+	for _, prefix := range []string{"CVSS:4.", "CVSS:3."} {
+		for _, vector := range vectors {
+			if strings.HasPrefix(vector, prefix) {
+				return vector
+			}
+		}
+	}
+	return ""
 }
 
 // grypeTarget handles Grype's source.target, which is a string for directory

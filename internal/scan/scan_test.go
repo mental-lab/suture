@@ -14,6 +14,7 @@ func TestLoadDirTrivy(t *testing.T) {
 	    "Vulnerabilities": [{
 	      "VulnerabilityID": "CVE-2023-25577",
 	      "Severity": "high",
+	      "CVSS": {"nvd": {"V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}},
 	      "PkgName": "werkzeug",
 	      "InstalledVersion": "2.2.3",
 	      "FixedVersion": "2.3.8"
@@ -38,6 +39,9 @@ func TestLoadDirTrivy(t *testing.T) {
 	f := findings[0]
 	if f.ID != "CVE-2023-25577" || f.Severity != "HIGH" || f.Pkg != "werkzeug" || f.Installed != "2.2.3" || f.Fixed != "2.3.8" {
 		t.Errorf("unexpected finding: %+v", f)
+	}
+	if f.CVSSVector != "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" {
+		t.Errorf("CVSSVector = %q, want scanner-provided CVSS v3 vector", f.CVSSVector)
 	}
 }
 
@@ -107,6 +111,7 @@ func TestLoadDirGrype(t *testing.T) {
 	    "vulnerability": {
 	      "id": "GHSA-xrfv-9qxx-8jxp",
 	      "severity": "High",
+	      "cvss": [{"version": "3.1", "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}],
 	      "fix": {"versions": ["2.3.8", "3.0.1"]}
 	    },
 	    "relatedVulnerabilities": [{"id": "CVE-2023-25577"}],
@@ -144,6 +149,21 @@ func TestLoadDirGrype(t *testing.T) {
 	}
 	if len(f.Aliases) != 1 || f.Aliases[0] != "CVE-2023-25577" {
 		t.Errorf("Aliases = %v, want the related CVE", f.Aliases)
+	}
+	if f.CVSSVector != "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" {
+		t.Errorf("CVSSVector = %q, want scanner-provided CVSS v3 vector", f.CVSSVector)
+	}
+}
+
+func TestPreferredCVSSPrefersV4AndIgnoresUnsupported(t *testing.T) {
+	got := preferredCVSS([]string{
+		"CVSS:2.0/AV:N/AC:L/Au:N/C:P/I:P/A:P",
+		"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+		"CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+	})
+	want := "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N"
+	if got != want {
+		t.Fatalf("preferredCVSS() = %q, want %q", got, want)
 	}
 }
 
