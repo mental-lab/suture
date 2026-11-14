@@ -7,21 +7,21 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
-- Remove the bundled `policy export` Rego scaffold because it duplicated the
+- Removed the bundled `policy export` Rego scaffold because it duplicated the
   native `advise --gate`. Migrate CI to `suture advise --gate`; use
   `--format json --out remediation-plan.json` when an external policy engine
   needs the same remediation plan.
 
 ### Changed
 
-- Clarify that MCP is an optional read-only Copilot/coding-agent adapter, not
+- Clarified that MCP is an optional read-only Copilot/coding-agent adapter, not
   an automation, authorization, or version-selection path.
-- Define the advisor's machine-readable remediation plan as the stable
+- Defined the advisor's machine-readable remediation plan as the intended
   integration boundary for existing enterprise tools.
-- Remove claims that same-upstream-version backports are non-breaking or have
+- Removed claims that same-upstream-version backports are non-breaking or have
   an identical API surface. Every remediation still requires artifact
   resolution, build, test, scan, and human review.
-- Document the built-in manifest updater's exact Maven and Gradle limitations.
+- Documented the built-in manifest updater's exact Maven and Gradle limitations.
 
 ## [v0.5.1] — 2026-08-10
 

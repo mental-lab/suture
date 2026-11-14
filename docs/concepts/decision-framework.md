@@ -46,18 +46,19 @@ the feed could remediate.
 
 ## The gate
 
-`--gate` fails only on the highest-signal condition:
-an internet-facing Critical/High with a Chainguard fix available but not
-applied. Everything else is advisory. The gate is designed to be red exactly
-once — the day you adopt the backport, it flips green without any allowlist
-edits.
+`--gate` fails only when an internet-facing Critical/High finding has an
+unapplied same-upstream-version backport. Everything else is advisory. After
+the backport is applied, the finding no longer meets the blocking rule; no
+allowlist change is required.
 
 ## The remediation plan is the product boundary
 
-The advisor's JSON output is the stable handoff to the rest of an enterprise
-toolchain. It records the scanner finding, the fixed package URL published by
-the supplier, whether the fix preserves the upstream base version, and the
-recommended action. Consumers may turn that plan into:
+The advisor's JSON output is the intended machine-readable handoff to the rest
+of an enterprise toolchain. It records the scanner finding, the fixed package
+URL published by the supplier, whether the fix preserves the upstream base
+version, and the recommended action. Until the output has an explicit schema
+version, integrations should pin Suture's minor release and test upgrades.
+Consumers may turn that plan into:
 
 - an enterprise advisory for an existing dependency bot;
 - an issue or policy result;
