@@ -6,7 +6,7 @@
   - [The decision framework](concepts/decision-framework.md) — OpenVEX backports, the fix cache, and how advise decides
 - **Guides**
   - [Enterprise adoption](guides/enterprise-adoption.md) — deployment modes that preserve existing SCA, dependency bots, and approval controls
-  - [AI coding assistants](guides/ai-assistants.md) — the MCP server and its read-only tools
+  - [Optional Copilot integration](guides/ai-assistants.md) — the MCP server and its read-only tools
 - **Reference**
   - [CLI reference](reference/cli.md) — every command and flag
 - **Trust & operations**

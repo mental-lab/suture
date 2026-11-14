@@ -11,14 +11,17 @@ var mcpBaseURL string
 
 var mcpCmd = &cobra.Command{
 	Use:   "mcp",
-	Short: "Serve suture's feed lookups and remediation advice as MCP tools (stdio)",
-	Long: `Start a stdio Model Context Protocol server exposing read-only tools:
+	Short: "Expose optional read-only remediation evidence over MCP (stdio)",
+	Long: `Start an optional stdio Model Context Protocol server exposing read-only tools:
 
   check_fix   — is there a Chainguard backport for this CVE in this package?
   list_fixes  — every vulnerability with a fixed release for a package
   advise      — remediation paths for a directory of Trivy/Grype scan results
 
-Point an AI coding assistant at it, e.g. in .mcp.json:
+This is an interactive evidence adapter, not the authoritative automation
+path. CI and policy should consume suture advise --format json directly.
+
+For clients that read .mcp.json:
 
   {"mcpServers": {"suture": {"command": "suture", "args": ["mcp"]}}}`,
 	RunE: func(cmd *cobra.Command, _ []string) error {

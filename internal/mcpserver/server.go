@@ -1,6 +1,6 @@
-// Package mcpserver exposes suture's feed lookups and remediation advice as
-// read-only MCP tools, so AI coding assistants can answer "is there a
-// Chainguard fix for this CVE?" mid-conversation.
+// Package mcpserver exposes suture's feed lookups and remediation evidence as
+// optional read-only MCP tools. Deterministic automation consumes the CLI's
+// JSON output instead of relying on model interpretation.
 package mcpserver
 
 import (

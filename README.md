@@ -265,6 +265,6 @@ package manager, or merge authority. See
 - [Concepts](docs/concepts/decision-framework.md) — OpenVEX backports, the fix cache, the decision framework
 - [Enterprise adoption](docs/guides/enterprise-adoption.md) — integrate with existing scanners, GitHub, Dependabot, and Copilot
 - [CLI reference](docs/reference/cli.md) — every command and flag
-- [AI coding assistants](docs/guides/ai-assistants.md) — the MCP server and its read-only tools
+- [Optional Copilot integration](docs/guides/ai-assistants.md) — the MCP server and its read-only tools
 - [Changelog](CHANGELOG.md) — user-facing release notes
 - [Scope & disclaimer](docs/trust/scope-and-disclaimer.md) — what suture does and does not claim
