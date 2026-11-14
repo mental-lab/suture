@@ -24,15 +24,13 @@ one flag.
 
 [chainguard-swag-shop](https://github.com/mental-lab/chainguard-swag-shop) is
 an intentionally vulnerable Flask shop wired to suture in CI. The advisor
-report on `main` looks like this — one actionable backport, pulled out of
-the noise:
+reports a cross-version Chainguard fix honestly as an upgrade rather than
+mislabeling it a same-version backport:
 
 ```
-**19 findings** — 🔧 1 with a Chainguard fix ready · ⬆️ 2 need an upstream upgrade · 📋 16 exception-review
-
 | CVE | Severity | Package | Chainguard fix | Action |
 | --- | --- | --- | --- | --- |
-| GHSA-2g68-c3qc-8985 | HIGH | `werkzeug 2.2.3` | werkzeug==3.0.2+cgr.1 | **backport** |
+| GHSA-2g68-c3qc-8985 | HIGH | `werkzeug 2.2.3` | werkzeug==3.0.2+cgr.1 | **upgrade** |
 ```
 
 The repo walks the full story: build → test → scan → advise → policy gate
@@ -168,14 +166,29 @@ suture advise --scan-dir results/ --assets security/asset-inventory.yaml --gate
 Reads **Trivy and Grype** JSON (auto-detected per file — drop both scanners'
 output in the same directory), looks each finding up in the feed, and decides:
 
-- **backport** — Chainguard-built patched package exists (`status=fixed`); remediate
-  without a breaking upstream upgrade
+- **backport** — a Chainguard-built package is marked `status=fixed` at the
+  same upstream base version; this avoids an upstream version upgrade but
+  still requires normal validation
 - **upgrade-or-replace** — no backport coverage; internet-facing Critical/High
 - **exception-review** — no backport, lower risk context
 - **none** — the backport is already applied (installed == fixed version)
 
 `--gate` exits 1 when an internet-facing Critical/High finding has a Chainguard
 fix available but not applied — the red→green flip when you adopt the backport.
+
+### `fix` — optionally apply supported exact pins
+
+```sh
+suture advise --scan-dir results/ --format json --out remediation-plan.json
+suture fix --from remediation-plan.json                         # dry run
+suture fix --from remediation-plan.json --write --out summary.md
+```
+
+The built-in updater is deliberately narrow. It handles exact PyPI and npm
+pins and literal Maven dependency versions. It does not currently update Maven
+properties, parents, BOMs, transitive constraints, Gradle files, or version
+catalogs. A same-base backport reduces upgrade risk; it is not a compatibility
+guarantee.
 
 ### `policy export` — scaffold the Rego gate
 
@@ -225,10 +238,12 @@ Every release ships with what you'd expect from a security tool:
 
 ## What suture doesn't promise
 
-A green gate means no *in-scope* finding has an unapplied Chainguard fix. It
-says nothing about ecosystems outside the feed, scanners' blind spots, or
-packages you didn't scan. Suture is a remediation advisor, not a scanner and
-not a guarantee. See [scope and disclaimer](docs/trust/scope-and-disclaimer.md).
+A green gate means no *in-scope* finding meets the configured blocking rule.
+It says nothing about ecosystems outside the feed, scanners' blind spots,
+packages you did not scan, artifact availability, or application
+compatibility. Suture is a remediation advisor, not a scanner, complete
+package manager, or merge authority. See
+[scope and disclaimer](docs/trust/scope-and-disclaimer.md).
 
 ## Documentation
 

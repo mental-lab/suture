@@ -11,6 +11,16 @@ results; it does not produce them.
 
 - **Not a scanner.** If your scanner missed a finding, suture has nothing
   to advise on.
+- **Not an artifact verifier.** A `status: fixed` package URL is evidence from
+  the feed operator. Before applying it, CI must authenticate to the intended
+  repository and resolve the exact artifact.
+- **Not a compatibility guarantee.** Keeping the upstream base version reduces
+  upgrade risk, but a backported binary can still change behavior. Normal
+  build, test, scan, and review requirements still apply.
+- **Not a complete Maven or Gradle updater.** The built-in Maven patcher only
+  changes literal versions in dependency blocks. It does not currently update
+  properties, parent POMs, imported BOMs, transitive constraints, Gradle build
+  files, or version catalogs.
 - **Not full coverage.** The feed covers Chainguard Libraries ecosystems
   (pypi, maven, npm, gem, nuget, cargo, golang), and within those, the
   packages Chainguard remediates. A finding outside that scope is reported

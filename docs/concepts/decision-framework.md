@@ -36,7 +36,7 @@ and cross-referencing it against your scanner output.
 
 | Action | When |
 | --- | --- |
-| **backport** | Chainguard feed has `status=fixed` for the finding — adopt the `+cgr.N` build; same test suite must pass |
+| **backport** | The feed has `status=fixed` for a build at the same upstream base version (`+cgr.N` or `-0.cgr.N`); normal build, test, scan, and review still apply |
 | **upgrade-or-replace** | No backport coverage; internet-facing Critical/High — pursue a compatible upstream upgrade, else evaluate replacement |
 | **exception-review** | No backport and lower risk context — a time-boxed compensating-control exception may be acceptable |
 | **none** | The backport is already applied (installed version matches a fixed release) |

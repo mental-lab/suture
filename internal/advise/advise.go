@@ -81,10 +81,11 @@ func (a *Advisor) Analyze(ctx context.Context, findings []scan.Finding) ([]Row, 
 	return rows, nil
 }
 
-// fixes returns the Chainguard-fixed purls for a finding, preferring the
-// same-version backport (the non-breaking change) and otherwise newest
-// first. The lookup matches on any of the finding's identifiers (Grype
-// reports a GHSA primary with CVE aliases; Trivy reports the CVE).
+// fixes returns the Chainguard-fixed purls for a finding, preferring a
+// same-upstream-version backport (the lower-migration-risk change) and
+// otherwise newest first. The lookup matches on any of the finding's
+// identifiers (Grype reports a GHSA primary with CVE aliases; Trivy reports
+// the CVE).
 func (a *Advisor) fixes(ctx context.Context, f scan.Finding) ([]string, error) {
 	doc, err := a.doc(ctx, f)
 	if err != nil || doc == nil {
@@ -256,9 +257,9 @@ func deniedSeverity(severity string) bool {
 //
 // hasFix means the Chainguard feed has at least one fixed version for the
 // finding. sameVersionFix means the top-ranked fix is at the SAME upstream
-// base version as the installed artifact — i.e. a true backport that
-// preserves the API surface. When hasFix is true but sameVersionFix is
-// false, the Chainguard fix exists only at a different base version and
+// base version as the installed artifact — i.e. a same-line backport that
+// avoids an upstream version upgrade. When hasFix is true but sameVersionFix
+// is false, the Chainguard fix exists only at a different base version and
 // adopting it requires a version change (minor, major, or sometimes
 // downgrade); that is categorically not a backport and we must not claim
 // test-suite compatibility.
@@ -271,8 +272,9 @@ func Decide(severity string, internetFacing, hasFix, sameVersionFix, applied, ha
 	case hasFix && sameVersionFix:
 		return "backport",
 			"Chainguard-built patched package exists at the SAME upstream version " +
-				"(VEX status=fixed). This is a same-version backport: identical API " +
-				"surface, CVE fix layered on top. Safe to apply with the existing test suite."
+				"(VEX status=fixed). This same-version backport avoids an upstream " +
+				"version upgrade and reduces compatibility risk, but still requires " +
+				"the normal build, test, scan, and review process."
 	case hasFix:
 		// Chainguard has a fix, but only at a DIFFERENT upstream base version.
 		// This is a version change, not a backport — honest rationale required.

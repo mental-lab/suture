@@ -47,15 +47,17 @@ type fixChange struct {
 var fixCmd = &cobra.Command{
 	Use:   "fix",
 	Short: "Apply Chainguard backports recommended by the advisor to dependency manifests",
-	Long: `Dependabot-style backport application. Consumes the advisor's JSON output
+	Long: `Optional exact-pin application. Consumes the advisor's JSON output
 (suture advise --format json), takes every row with action="backport", and
 rewrites the corresponding pins in the dependency manifests discovered
 under --dir (requirements*.txt, package.json, pom.xml — the Chainguard
 Libraries ecosystems).
 
-Backports are same-version (<version>+cgr.N) — non-breaking by construction.
-A pin is only rewritten when it still matches the scanned version, so the
-command is idempotent and never touches a pin that has already moved.
+Backports preserve the upstream base version, which reduces upgrade risk but
+does not guarantee compatibility. A pin is only rewritten when it still
+matches the scanned version, so the command is idempotent and never touches a
+pin that has already moved. The normal build, test, scan, and review process
+must still validate every change.
 Findings needing an upstream upgrade or exception review are left to the
 advisor report.
 
@@ -234,7 +236,7 @@ func fixMarkdown(changes []fixChange, applied bool) string {
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n",
 			c.File, c.Package, c.From, c.To, strings.Join(c.Addresses, ", "))
 	}
-	b.WriteString("\nSame-version backports are non-breaking; the existing test suite validates the change.\n")
+	b.WriteString("\nThese backports preserve the upstream base version to reduce upgrade risk. Build, test, scan, and review the changes before merging.\n")
 	return b.String()
 }
 
