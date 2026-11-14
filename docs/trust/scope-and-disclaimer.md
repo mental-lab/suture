@@ -27,10 +27,11 @@ remediation data.
   packages Chainguard remediates. A finding outside that scope is reported
   as having no Chainguard fix — that is a statement about the feed, not
   about the world.
-- **Not a guarantee.** A green gate means no in-scope internet-facing
-  Critical/High finding has an unapplied Chainguard fix. It is silent about
-  everything else: lower severities, internal assets, unscanned artifacts,
-  feed lag, scanner blind spots.
+- **Not a guarantee.** A green gate means no in-scope finding meets the
+  built-in blocking rule: internet-facing, Critical/High, and an unapplied
+  same-upstream-version backport. It is silent about lower severities,
+  internal assets, cross-version fixes, unscanned artifacts, feed lag, and
+  scanner blind spots.
 
 ## Feed trust
 

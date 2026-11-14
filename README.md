@@ -9,21 +9,18 @@
 Suture is a deterministic OpenVEX remediation bridge. It cross-references
 Trivy/Grype findings against the Chainguard OpenVEX feed, identifies
 **same-upstream-version backports** (`+cgr.N` and `-0.cgr.N`), and emits a
-machine-readable remediation plan. That plan can feed existing scanners,
-policy engines, dependency bots, coding agents, or a reviewable manifest
-change.
+machine-readable remediation plan. Suture can also materialize raw OpenVEX for
+compatible scanners. The remediation plan is intended for policy engines,
+integration adapters, approved coding agents, and reviewable manifest changes.
 
 Suture does not replace Dependabot, Renovate, an SCA platform, or repository
 approval rules. It supplies the vendor-specific evidence those tools do not
 currently derive from Chainguard OpenVEX.
 
-Not tied to Chainguard the company — tied to the **feed shape**: any OpenVEX
-feed laid out like Chainguard Libraries' works via `--base-url`. The reason
-this tool exists at all is that Chainguard is unusually transparent here:
-it publishes its remediation data as a **public, machine-readable OpenVEX
-feed**, where other backport vendors keep theirs behind a sales call. If
-another vendor publishes an equivalent feed tomorrow, suture serves it with
-one flag.
+Feed compatibility is based on the **feed shape**, not the operator. Any
+OpenVEX feed laid out like Chainguard Libraries' can be configured with
+`--base-url`. Chainguard Libraries is the default because it publishes public,
+machine-readable remediation data in that format.
 
 ## See it in action
 
@@ -43,7 +40,7 @@ The repo walks the full story: build → test → scan → advise → policy gat
 
 ## Status
 
-🚧 Early, and moving fast. Working today:
+Suture is a pre-1.0 project. Available today:
 
 - **fetch** — pull per-package OpenVEX documents into a machine-readable fix
   cache, scoped to what you ship (`--sbom` / `--packages` / `--packages-file`)
@@ -173,8 +170,8 @@ suture advise --scan-dir results/ --format markdown --out vex-report.md
 suture advise --scan-dir results/ --assets security/asset-inventory.yaml --gate
 ```
 
-Reads **Trivy and Grype** JSON (auto-detected per file — drop both scanners'
-output in the same directory), looks each finding up in the feed, and decides:
+Reads **Trivy and Grype** JSON (auto-detected per file; place output from both
+scanners in the same directory), looks each finding up in the feed, and decides:
 
 - **backport** — a Chainguard-built package is marked `status=fixed` at the
   same upstream base version; this avoids an upstream version upgrade but
@@ -183,9 +180,9 @@ output in the same directory), looks each finding up in the feed, and decides:
 - **exception-review** — no backport, lower risk context
 - **none** — the backport is already applied (installed == fixed version)
 
-`--gate` exits 1 when an internet-facing Critical/High finding has a same-base
-Chainguard fix available but not applied — the red→green flip when you adopt
-the backport.
+`--gate` exits 1 when an internet-facing Critical/High finding has an
+unapplied same-upstream-version backport. The gate passes after the backport
+is applied.
 
 ### `fix` — optionally apply supported exact pins
 
@@ -223,7 +220,7 @@ guarantee.
 
 ## Supply chain
 
-Every release ships with what you'd expect from a security tool:
+Every release includes:
 
 - **Cosign keyless-signed** checksums (`checksums.txt.sig` / `.pem` per release)
 - **SBOM** attached to every archive

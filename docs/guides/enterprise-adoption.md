@@ -44,10 +44,10 @@ policy in the organization's existing platform.
 ### 3. Integrate with GitHub-native controls
 
 For GitHub Enterprise Cloud customers with GitHub Code Security or GitHub
-Advanced Security, enterprise-scoped innersource advisories are a promising
-native integration. GitHub accepts OSV advisory payloads and may ask Dependabot
-to open a security-update pull request when the fixed version exists in an
-accessible package registry. See GitHub's
+Advanced Security, enterprise-scoped innersource advisories are a potential
+native integration. GitHub documents OSV advisory payloads and a workflow that
+can request a Dependabot security-update pull request when the fixed version
+exists in an accessible package registry. See GitHub's
 [innersource advisory documentation](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/manage-innersource-advisories).
 
 OpenVEX-to-OSV export and Dependabot behavior for Chainguard's Maven
@@ -61,8 +61,8 @@ remediation plan as evidence rather than hand-authoring enterprise advisories.
 Use `suture fix` only for its documented exact-pin cases, or connect the plan
 to a Maven/Gradle-aware updater such as OpenRewrite. Verify the exact artifact
 through the authenticated repository before writing a branch. Create a draft
-pull request with a narrowly scoped GitHub App or equivalent service identity;
-never push directly to the default branch.
+pull request with a narrowly scoped GitHub App or equivalent service identity,
+and retain the repository's normal branch protection or ruleset controls.
 
 ### 5. Add an approved coding agent
 
