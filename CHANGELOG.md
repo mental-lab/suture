@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Added Trivy and Grype CI scans of the compiled binary's SPDX SBOM, retaining
+  scanner reports as workflow artifacts and blocking on High/Critical findings.
 - Added `github-advisory export` to produce OSV 1.4 request bodies
   for GitHub Enterprise innersource advisories from remediation plans.
 
