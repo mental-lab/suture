@@ -3,6 +3,14 @@
 All notable changes to suture. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Remove claims that same-upstream-version backports are non-breaking or have
+  an identical API surface. Every remediation still requires artifact
+  resolution, build, test, scan, and human review.
+- Document the built-in manifest updater's exact Maven and Gradle limitations.
+
 ## [v0.5.1] — 2026-08-10
 
 ### Changed — advisor / `suture fix`

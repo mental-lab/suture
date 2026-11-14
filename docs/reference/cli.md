@@ -76,10 +76,13 @@ suture fix --from vex-report.json --write --out summary.md
 | `--format` | `markdown` | summary format: `markdown`\|`json` |
 | `--out` | stdout | write the summary to a file |
 
-Only rows with `action="backport"` are applied — same-version `+cgr.N`
-pins, non-breaking by construction. Manifest discovery is Gemnasium-style:
-known filenames (`requirements*.txt`), at most two levels deep. Everything
-except the changed pins is preserved byte-for-byte.
+Only rows with `action="backport"` are applied. Same-upstream-version
+backports reduce upgrade risk but are not guaranteed to be non-breaking.
+Manifest discovery is Gemnasium-style and at most two directory levels deep.
+The built-in patchers handle exact PyPI requirements, exact npm dependency
+values, and literal Maven dependency versions. Maven properties, parent POMs,
+BOMs, transitive overrides, Gradle files, and version catalogs are not changed.
+Everything except supported changed pins is preserved byte-for-byte.
 
 ## `suture policy export`
 
