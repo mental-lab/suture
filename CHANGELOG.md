@@ -14,6 +14,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Preserved scanner-provided CVSS v3/v4 vectors in JSON remediation plans for
+  integrations that require machine-readable severity evidence.
 - Clarified that MCP is an optional read-only Copilot/coding-agent adapter, not
   an automation, authorization, or version-selection path.
 - Defined the advisor's machine-readable remediation plan as the intended
