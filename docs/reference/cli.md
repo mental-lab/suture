@@ -49,15 +49,16 @@ nuget, cargo, golang) are skipped with an audit line. An unreadable
 
 ## `suture mcp`
 
-Serve suture's feed lookups and remediation advice as read-only MCP tools
-over stdio, for AI coding assistants.
+Serve suture's feed lookups and remediation evidence as optional read-only MCP
+tools over stdio. MCP is intended for interactive investigation; deterministic
+automation should consume the advisor JSON directly.
 
 ```
 suture mcp [--base-url URL]
 ```
 
 Exposes `check_fix`, `list_fixes`, and `advise`. See
-[AI coding assistants](../guides/ai-assistants.md).
+[optional Copilot integration](../guides/ai-assistants.md).
 
 ## `suture fix`
 

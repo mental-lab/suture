@@ -40,6 +40,16 @@ relationship is the product. The `--base-url` flag exists so you can point
 at a mirror or a differently-operated feed with the same layout; the same
 trust consideration applies to whoever operates it.
 
+## MCP trust boundary
+
+The optional MCP server exposes read-only lookups and advice. It does not apply
+changes or authorize remediation, and an MCP annotation is metadata rather
+than an enforcement boundary. Enterprise operators should allowlist the server
+and individual tools, constrain the process to the intended workspace, and
+avoid placing private scan results into model context unless their data policy
+allows it. CI and policy should consume the CLI's JSON output directly rather
+than depend on model interpretation.
+
 ## License
 
 Apache-2.0, provided without warranty. Remediation decisions remain yours.

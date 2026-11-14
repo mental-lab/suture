@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- Clarify that MCP is an optional read-only Copilot/coding-agent adapter, not
+  an automation, authorization, or version-selection path.
 - Define the advisor's machine-readable remediation plan as the stable
   integration boundary for existing enterprise tools.
 - Remove claims that same-upstream-version backports are non-breaking or have
