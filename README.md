@@ -1,16 +1,21 @@
 # suture
 
-**Scanners tell you a CVE exists. Suture tells you there's a same-version fix.**
+**Turn supplier OpenVEX into remediation plans your existing tools can act on.**
 
 [![ci](https://github.com/mental-lab/suture/actions/workflows/ci.yml/badge.svg)](https://github.com/mental-lab/suture/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/mental-lab/suture)](https://github.com/mental-lab/suture/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mental-lab/suture)](https://goreportcard.com/report/github.com/mental-lab/suture)
 
-OpenVEX-aware remediation tooling for Chainguard Libraries. Cross-references
-Trivy/Grype findings against the Chainguard OpenVEX feed to find
-**same-version backports** (`+cgr.N`) that generic scanners never surface,
-recommends a remediation path per finding, and gates merges on unapplied
-fixes.
+Suture is a deterministic OpenVEX remediation bridge. It cross-references
+Trivy/Grype findings against the Chainguard OpenVEX feed, identifies
+**same-upstream-version backports** (`+cgr.N` and `-0.cgr.N`), and emits a
+machine-readable remediation plan. That plan can feed existing scanners,
+policy engines, dependency bots, coding agents, or a reviewable manifest
+change.
+
+Suture does not replace Dependabot, Renovate, an SCA platform, or repository
+approval rules. It supplies the vendor-specific evidence those tools do not
+currently derive from Chainguard OpenVEX.
 
 Not tied to Chainguard the company — tied to the **feed shape**: any OpenVEX
 feed laid out like Chainguard Libraries' works via `--base-url`. The reason
@@ -46,12 +51,19 @@ The repo walks the full story: build → test → scan → advise → policy gat
 - **advise** — per-finding remediation recommendation (backport /
   upgrade-or-replace / exception-review / already-fixed), reading Trivy and
   Grype output interchangeably, scoped to Chainguard Libraries ecosystems
+- **fix** — dry-run by default; applies supported exact pins from the advisor's
+  structured `fix_purl` contract to requirements files, package.json, and
+  literal Maven dependency versions
 - **policy export** — scaffold the same gate as declarative Rego for
   Conftest/OPA
+- **mcp** — optional read-only evidence tools for Copilot and other approved
+  coding agents; not an automation or authorization path
 - **Releases** — cosign keyless-signed, SBOM'd, multi-arch binaries and
   Chainguard-based container images
 
-Roadmap: manifest auto-detection for scoping, richer asset context in the gate.
+Next integration targets: artifact verification, GitHub Enterprise innersource
+advisory export, Maven property/BOM handling, and Gradle support. Each belongs
+behind the same machine-readable remediation-plan boundary.
 
 ## Install
 
@@ -251,6 +263,7 @@ package manager, or merge authority. See
 
 - [Quickstart](docs/getting-started/quickstart.md) — install, first fetch, first gate
 - [Concepts](docs/concepts/decision-framework.md) — OpenVEX backports, the fix cache, the decision framework
+- [Enterprise adoption](docs/guides/enterprise-adoption.md) — integrate with existing scanners, GitHub, Dependabot, and Copilot
 - [CLI reference](docs/reference/cli.md) — every command and flag
 - [AI coding assistants](docs/guides/ai-assistants.md) — the MCP server and its read-only tools
 - [Changelog](CHANGELOG.md) — user-facing release notes
