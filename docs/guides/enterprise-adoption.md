@@ -50,11 +50,29 @@ can request a Dependabot security-update pull request when the fixed version
 exists in an accessible package registry. See GitHub's
 [innersource advisory documentation](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/manage-innersource-advisories).
 
-OpenVEX-to-OSV export and Dependabot behavior for Chainguard's Maven
-`-0.cgr.N` versions must be validated before production use. In particular,
-test registry authentication, direct dependencies, properties, BOMs, and
-transitive findings. Until that adapter is implemented and tested, use the
-remediation plan as evidence rather than hand-authoring enterprise advisories.
+Export the request body without granting Suture enterprise credentials:
+
+```sh
+suture github-advisory export \
+  --from remediation-plan.json --out github-advisories.json
+```
+
+Upload it with a GitHub App installation token that has write access to the
+`enterprise_innersource_vulnerabilities` permission:
+
+```sh
+GH_TOKEN="$GITHUB_APP_INSTALLATION_TOKEN" gh api --method POST \
+  /enterprises/ENTERPRISE/innersource-vulnerabilities/sync \
+  --input github-advisories.json
+```
+
+GitHub requires an active GitHub Code Security or GitHub Advanced Security
+license, enabled Dependabot alerts and security updates, and a fixed version
+that resolves from an accessible package registry. Validate registry
+authentication and Dependabot ordering for ecosystem-specific Chainguard
+suffixes such as `+cgr.N` and Maven's `-0.cgr.N` before production rollout.
+Properties, BOMs, and transitive dependencies may still require a Maven-aware
+change tool and human review.
 
 ### 4. Propose changes
 
