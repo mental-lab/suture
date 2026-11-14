@@ -183,8 +183,9 @@ output in the same directory), looks each finding up in the feed, and decides:
 - **exception-review** — no backport, lower risk context
 - **none** — the backport is already applied (installed == fixed version)
 
-`--gate` exits 1 when an internet-facing Critical/High finding has a Chainguard
-fix available but not applied — the red→green flip when you adopt the backport.
+`--gate` exits 1 when an internet-facing Critical/High finding has a same-base
+Chainguard fix available but not applied — the red→green flip when you adopt
+the backport.
 
 ### `fix` — optionally apply supported exact pins
 
@@ -234,7 +235,7 @@ Every release ships with what you'd expect from a security tool:
 A green gate means no *in-scope* finding meets the configured blocking rule.
 It says nothing about ecosystems outside the feed, scanners' blind spots,
 packages you did not scan, artifact availability, or application
-compatibility. Suture is a remediation advisor, not a scanner, complete
+compatibility. Suture is a remediation bridge, not a scanner, complete
 package manager, or merge authority. See
 [scope and disclaimer](docs/trust/scope-and-disclaimer.md).
 
