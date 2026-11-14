@@ -19,3 +19,65 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
       - run: go build ./...
+
+  vulnerability-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binary
+        run: go build -trimpath -o dist/suture .
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          file: dist/suture
+          format: spdx-json
+          output-file: suture.spdx.json
+          upload-artifact: false
+
+      - name: Scan SBOM with Trivy
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: sbom
+          scan-ref: suture.spdx.json
+          format: json
+          output: trivy-results.json
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - name: Scan SBOM with Grype
+        id: grype
+        continue-on-error: true
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: suture.spdx.json
+          output-format: json
+          output-file: grype-results.json
+          fail-build: true
+          severity-cutoff: high
+
+      - name: Upload scan evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vulnerability-scan-evidence
+          path: |
+            suture.spdx.json
+            trivy-results.json
+            grype-results.json
+          if-no-files-found: error
+
+      - name: Enforce scan results
+        if: always()
+        env:
+          TRIVY_OUTCOME: ${{ steps.trivy.outcome }}
+          GRYPE_OUTCOME: ${{ steps.grype.outcome }}
+        run: |
+          test "$TRIVY_OUTCOME" = success
+          test "$GRYPE_OUTCOME" = success

@@ -13,7 +13,8 @@ gofmt -l .       # should print nothing
 go vet ./...     # should pass
 ```
 
-CI enforces gofmt, vet, tests, and Trivy scanning on every PR.
+CI enforces vet, tests, builds, and High/Critical Trivy and Grype scans of the
+compiled binary's SBOM on every PR.
 
 ## Ground rules
 
