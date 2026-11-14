@@ -48,6 +48,8 @@ Suture is a pre-1.0 project. Available today:
 - **advise** — per-finding remediation recommendation (backport /
   upgrade-or-replace / exception-review / already-fixed), reading Trivy and
   Grype output interchangeably, scoped to Chainguard Libraries ecosystems
+- **github-advisory export** — produce an OSV 1.4 request body for
+  GitHub Enterprise innersource advisories and Dependabot
 - **fix** — dry-run by default; applies supported exact pins from the advisor's
   structured `fix_purl` contract to requirements files, package.json, and
   literal Maven dependency versions
@@ -56,9 +58,9 @@ Suture is a pre-1.0 project. Available today:
 - **Releases** — cosign keyless-signed, SBOM'd, multi-arch binaries and
   Chainguard-based container images
 
-Next integration targets: artifact verification, GitHub Enterprise innersource
-advisory export, Maven property/BOM handling, and Gradle support. Each belongs
-behind the same machine-readable remediation-plan boundary.
+Next integration targets: artifact verification, Maven property/BOM handling,
+and Gradle support. Each belongs behind the same machine-readable
+remediation-plan boundary.
 
 ## Install
 
@@ -197,6 +199,19 @@ pins and literal Maven dependency versions. It does not currently update Maven
 properties, parents, BOMs, transitive constraints, Gradle files, or version
 catalogs. A same-base backport reduces upgrade risk; it is not a compatibility
 guarantee.
+
+### `github-advisory export` — prepare native GitHub advisory input
+
+```sh
+suture advise --scan-dir results/ --format json --out remediation-plan.json
+suture github-advisory export \
+  --from remediation-plan.json --out github-advisories.json
+```
+
+The exporter emits the OSV 1.4 request body for GitHub Enterprise innersource
+advisories. It does not upload or handle credentials. See
+[enterprise adoption](docs/guides/enterprise-adoption.md) for prerequisites
+and the GitHub App upload step.
 
 ## CI usage (GitHub Actions)
 

@@ -5,6 +5,11 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Added `github-advisory export` to produce OSV 1.4 request bodies
+  for GitHub Enterprise innersource advisories from remediation plans.
+
 ### Removed
 
 - Removed the bundled `policy export` Rego scaffold because it duplicated the

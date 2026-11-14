@@ -47,6 +47,27 @@ Findings outside Chainguard Libraries ecosystems (pypi, maven, npm, gem,
 nuget, cargo, golang) are skipped with an audit line. An unreadable
 `--assets` file is a hard error.
 
+## `suture github-advisory export`
+
+Convert unapplied backport recommendations into the OSV 1.4 request body for
+GitHub's enterprise innersource vulnerability sync API.
+
+```
+suture github-advisory export --from remediation-plan.json \
+  --out github-advisories.json
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--from` | stdin | advisor JSON report (`suture advise --format json`) |
+| `--out` | stdout | GitHub sync request body |
+| `--modified` | current UTC time | OSV `modified` timestamp in RFC3339 |
+
+The command exports only unapplied `backport` rows and fails if required CVSS,
+package, or version evidence is missing. It neither uploads the payload nor
+handles GitHub credentials. GitHub accepts at most 100 vulnerabilities per
+sync request.
+
 ## `suture mcp`
 
 Serve suture's feed lookups and remediation evidence as optional read-only MCP
