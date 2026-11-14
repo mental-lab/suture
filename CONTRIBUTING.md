@@ -28,11 +28,12 @@ CI enforces gofmt, vet, tests, and Trivy scanning on every PR.
 
 ## Scope
 
-Suture is intentionally narrow: OpenVEX feed → remediation advice → policy
-gate. Features that turn it into a scanner, a dashboard, or a platform are
-out of scope. Features that sharpen the remediation story (better scoping,
-richer asset context, more feed shapes) are in scope — open an issue first
-for anything larger than a bug fix.
+Suture is intentionally narrow: OpenVEX feed → deterministic remediation plan
+→ adapters for existing enterprise tooling. It is not a scanner, dashboard,
+repository manager, autonomous agent, or merge authority. In-scope work
+improves dependency evidence, artifact verification, policy, advisory export,
+MCP read-only access, or predictable manifest updates. Open an issue first for
+anything larger than a bug fix.
 
 ## Reporting security issues
 

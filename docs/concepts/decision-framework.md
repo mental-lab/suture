@@ -52,3 +52,20 @@ an internet-facing Critical/High with a Chainguard fix available but not
 applied. Everything else is advisory. The gate is designed to be red exactly
 once — the day you adopt the backport, it flips green without any allowlist
 edits.
+
+## The remediation plan is the product boundary
+
+The advisor's JSON output is the stable handoff to the rest of an enterprise
+toolchain. It records the scanner finding, the fixed package URL published by
+the supplier, whether the fix preserves the upstream base version, and the
+recommended action. Consumers may turn that plan into:
+
+- an enterprise advisory for an existing dependency bot;
+- an issue or policy result;
+- a dry-run manifest change;
+- a draft pull request after registry verification; or
+- read-only evidence exposed to an approved coding agent.
+
+Suture does not require any of those consumers to trust an LLM to select a
+version. The OpenVEX statement and exact package URL remain the machine-readable
+source of the recommendation.

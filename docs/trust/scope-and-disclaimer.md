@@ -2,10 +2,11 @@
 
 ## What suture is
 
-A remediation advisor: it cross-references vulnerability scanner output
-(Trivy, Grype) against the Chainguard Libraries OpenVEX feed and tells you
-where a same-version, vendor-built fix exists. It helps you act on scan
-results; it does not produce them.
+An OpenVEX remediation bridge: it cross-references vulnerability scanner
+output (Trivy, Grype) against a supplier OpenVEX feed and emits deterministic
+evidence about available backports. It helps existing scanners, policy engines,
+dependency bots, coding agents, and pull-request workflows act on supplier
+remediation data.
 
 ## What suture is not
 

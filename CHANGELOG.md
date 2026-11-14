@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- Define the advisor's machine-readable remediation plan as the stable
+  integration boundary for existing enterprise tools.
 - Remove claims that same-upstream-version backports are non-breaking or have
   an identical API surface. Every remediation still requires artifact
   resolution, build, test, scan, and human review.
