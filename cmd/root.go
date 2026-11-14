@@ -13,10 +13,11 @@ var Version = "dev"
 
 var rootCmd = &cobra.Command{
 	Use:   "suture",
-	Short: "OpenVEX-aware remediation tooling for Chainguard Libraries",
-	Long: `Cross-reference vulnerability scanner output against the Chainguard
-Libraries OpenVEX feed to find same-version backports (+cgr.N), recommend
-remediation paths, and gate merges on unapplied fixes.`,
+	Short: "Turn OpenVEX backports into deterministic remediation plans",
+	Long: `Cross-reference vulnerability scanner output against an OpenVEX feed,
+identify same-upstream-version backports (+cgr.N and -0.cgr.N), and emit
+machine-readable remediation plans for policy, existing developer tooling,
+and reviewable dependency changes.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
