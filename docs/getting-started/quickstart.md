@@ -54,10 +54,12 @@ grype dir:. --vex vex-documents   # findings Chainguard marked fixed are suppres
 ## 5. Gate in CI
 
 ```sh
-suture policy export --dir policy/vex --asset-key my-service
-conftest test fs-scan.json --policy policy/vex --all-namespaces \
-  --data assets.json --data vex.json   # see README "CI usage" for the jq/yq reshaping
+suture advise --scan-dir . --assets asset-inventory.yaml \
+  --format json --out remediation-plan.json --gate
 ```
+
+The command writes the remediation plan and exits nonzero when a finding meets
+the built-in blocking rule.
 
 A full working pipeline lives in
 [chainguard-swag-shop](https://github.com/mental-lab/chainguard-swag-shop):

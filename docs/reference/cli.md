@@ -10,7 +10,7 @@ suture fetch [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--out` | `data/vex-cache.json` | cache output path (OPA data document) |
+| `--out` | `data/vex-cache.json` | machine-readable cache output path |
 | `--write-docs` | — | also write raw OpenVEX documents to this dir (for `grype --vex`) |
 | `--write-vex` | — | write one merged OpenVEX document to this file (for `trivy --vex`, which takes a file not a dir) |
 | `--sbom` | — | scope to packages in an SBOM (Syft/SPDX/CycloneDX; `-` reads stdin) |
@@ -84,26 +84,3 @@ The built-in patchers handle exact PyPI requirements, exact npm dependency
 values, and literal Maven dependency versions. Maven properties, parent POMs,
 BOMs, transitive overrides, Gradle files, and version catalogs are not changed.
 Everything except supported changed pins is preserved byte-for-byte.
-
-## `suture policy export`
-
-Scaffold the default remediation gate as Rego.
-
-```
-suture policy export --dir policy/vex --asset-key my-service
-```
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--dir` | `policy/vex` | output directory for the .rego file |
-| `--asset-key` | — | accepted for compatibility; unused since v0.4.0 |
-
-The exported policy is `package remediation`; evaluate it with
-`conftest test --all-namespaces` — conftest only evaluates `package main`
-by default, and without the flag the gate silently passes.
-
-Since v0.4.0 the gate is *thin*: it consumes the advisor's JSON output
-(`suture advise --format json`) and only encodes what blocks a merge —
-internet-facing CRITICAL/HIGH with an unapplied Chainguard backport.
-Decision logic (which action a finding gets) lives in the advisor, so new
-advisor actions never require policy changes.

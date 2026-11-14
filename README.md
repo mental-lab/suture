@@ -45,7 +45,7 @@ The repo walks the full story: build → test → scan → advise → policy gat
 
 🚧 Early, and moving fast. Working today:
 
-- **fetch** — pull per-package OpenVEX documents into an OPA-consumable fix
+- **fetch** — pull per-package OpenVEX documents into a machine-readable fix
   cache, scoped to what you ship (`--sbom` / `--packages` / `--packages-file`)
   or the full feed
 - **advise** — per-finding remediation recommendation (backport /
@@ -54,8 +54,6 @@ The repo walks the full story: build → test → scan → advise → policy gat
 - **fix** — dry-run by default; applies supported exact pins from the advisor's
   structured `fix_purl` contract to requirements files, package.json, and
   literal Maven dependency versions
-- **policy export** — scaffold the same gate as declarative Rego for
-  Conftest/OPA
 - **mcp** — optional read-only evidence tools for Copilot and other approved
   coding agents; not an automation or authorization path
 - **Releases** — cosign keyless-signed, SBOM'd, multi-arch binaries and
@@ -104,7 +102,7 @@ sequenceDiagram
         Note over Suture: index status=fixed statements<br/>keyed by every vuln ID + alias
     end
 
-    Suture -->> CI: data/vex-cache.json (OPA data document)
+    Suture -->> CI: data/vex-cache.json (machine-readable JSON)
     Suture -->> CI: vex-documents/ (raw docs for grype --vex)
 ```
 
@@ -152,7 +150,7 @@ suture fetch --packages pypi/werkzeug,npm/lodash                # eco/name pins 
 suture fetch --packages-file requirements.txt                   # one per line; pins stripped
 ```
 
-Fetches every per-package OpenVEX document and emits an OPA-consumable cache:
+Fetches every per-package OpenVEX document and emits a machine-readable cache:
 
 ```json
 { "pkg:pypi/werkzeug": { "CVE-2023-25577": ["pkg:pypi/werkzeug@2.2.3%2Bcgr.1"] } }
@@ -202,16 +200,6 @@ properties, parents, BOMs, transitive constraints, Gradle files, or version
 catalogs. A same-base backport reduces upgrade risk; it is not a compatibility
 guarantee.
 
-### `policy export` — scaffold the Rego gate
-
-```sh
-suture policy export --dir policy/vex --asset-key my-service
-```
-
-Writes the default declarative gate (same logic as `advise --gate`, as Rego)
-for evaluation with Conftest/OPA. Policy lives in your repo; the tool only
-scaffolds it.
-
 ## CI usage (GitHub Actions)
 
 ```yaml
@@ -224,19 +212,12 @@ scaffolds it.
 - name: Build OpenVEX fix cache (scoped to the app's packages)
   run: suture fetch --sbom sbom.json --out data/vex-cache.json --write-docs vex-documents
 
-- name: Remediation advisor
-  run: suture advise --scan-dir results/ --assets security/asset-inventory.yaml --out vex-report.md
-
-- name: Policy gate
-  # --all-namespaces matters: conftest only evaluates the `main` package by
-  # default and the exported policy is `package remediation` — without it
-  # the gate silently passes.
+- name: Remediation plan and gate
   run: |
-    yq -o=json '{"assets": .}' security/asset-inventory.yaml > assets.json
-    jq '{vex_cache: .}' data/vex-cache.json > vex.json
-    conftest test results/fs-scan.json \
-      --policy policy/vex --all-namespaces \
-      --data assets.json --data vex.json
+    suture advise --scan-dir results/ \
+      --assets security/asset-inventory.yaml \
+      --format json --out remediation-plan.json \
+      --gate
 ```
 
 ## Supply chain
