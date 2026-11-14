@@ -31,10 +31,10 @@ var fetchCmd = &cobra.Command{
 	Use:   "fetch",
 	Short: "Fetch the OpenVEX feed and build the fix cache",
 	Long: `Fetch per-package OpenVEX documents from the Chainguard Libraries feed
-and emit the OPA-consumable fix cache. Optionally materialize the raw
-documents so Grype can consume them directly via --vex <dir>, or a single
-merged document via --write-vex for Trivy's --vex <file>, for
-VEX-aware scanning that suppresses status=fixed findings.
+and emit a machine-readable fix cache. Optionally materialize the raw documents
+so Grype can consume them directly via --vex <dir>, or a single merged document
+via --write-vex for Trivy's --vex <file>, for VEX-aware scanning that
+suppresses status=fixed findings.
 
 By default the whole feed is fetched. Scope to the packages you ship with
 --sbom (Syft/SPDX/CycloneDX JSON, or "-" for stdin), --packages (bare names

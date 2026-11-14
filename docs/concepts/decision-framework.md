@@ -25,8 +25,7 @@ and cross-referencing it against your scanner output.
   `under_investigation` are not fixes.
 - Statements are keyed by **every** vulnerability identifier (CVE, GHSA, …),
   because Trivy reports the CVE and Grype often reports the GHSA.
-- The cache is a plain JSON data document, consumable by OPA/Conftest for
-  the declarative gate.
+- The cache is a plain JSON data document for deterministic integrations.
 - Scope the fetch (`--sbom`, `--packages`, `--packages-file`) to pull only
   the packages you ship.
 
@@ -47,7 +46,7 @@ the feed could remediate.
 
 ## The gate
 
-`--gate` (or the exported Rego) fails only on the highest-signal condition:
+`--gate` fails only on the highest-signal condition:
 an internet-facing Critical/High with a Chainguard fix available but not
 applied. Everything else is advisory. The gate is designed to be red exactly
 once — the day you adopt the backport, it flips green without any allowlist

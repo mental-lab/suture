@@ -1,6 +1,5 @@
 // Package feed fetches the Chainguard Libraries OpenVEX feed and builds the
-// fix cache consumed by the policy gate (as an OPA data document) and by the
-// remediation advisor.
+// machine-readable fix cache consumed by remediation integrations.
 package feed
 
 import (

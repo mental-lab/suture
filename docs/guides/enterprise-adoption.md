@@ -36,9 +36,10 @@ is required.
 
 ### 2. Enforce policy
 
-Use `advise --gate` or `policy export` to enforce a narrow rule, such as an
-internet-facing Critical/High finding with an unapplied same-base backport.
-Keep broader vulnerability policy in the organization's existing platform.
+Use `advise --gate` to enforce a narrow rule, such as an internet-facing
+Critical/High finding with an unapplied same-base backport. The advisor's JSON
+can also feed an existing external policy engine. Keep broader vulnerability
+policy in the organization's existing platform.
 
 ### 3. Integrate with GitHub-native controls
 

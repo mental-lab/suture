@@ -5,7 +5,15 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the bundled `policy export` Rego scaffold because it duplicated the
+  native `advise --gate`. Migrate CI to `suture advise --gate`; use
+  `--format json --out remediation-plan.json` when an external policy engine
+  needs the same remediation plan.
+
 ### Changed
+
 - Clarify that MCP is an optional read-only Copilot/coding-agent adapter, not
   an automation, authorization, or version-selection path.
 - Define the advisor's machine-readable remediation plan as the stable
